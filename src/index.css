@@ -1,0 +1,32 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html { -webkit-font-smoothing: antialiased; }
+  body { @apply bg-slate-50 text-slate-900 font-sans antialiased; }
+}
+
+@layer utilities {
+  .scrollbar-thin::-webkit-scrollbar { width: 6px; height: 6px; }
+  .scrollbar-thin::-webkit-scrollbar-thumb { background: rgba(100,120,150,.35); border-radius: 999px; }
+  .scrollbar-thin::-webkit-scrollbar-track { background: transparent; }
+  .scrollbar-navy::-webkit-scrollbar { width: 6px; }
+  .scrollbar-navy::-webkit-scrollbar-thumb { background: rgba(148,168,198,.18); border-radius: 999px; }
+
+  .skeleton {
+    background: linear-gradient(90deg, #eef1f5 8%, #f6f8fb 18%, #eef1f5 33%);
+    background-size: 800px 100%;
+    @apply animate-shimmer rounded-lg;
+  }
+  .ring-focus:focus { outline: none; box-shadow: 0 0 0 3px rgba(37,99,235,.16); border-color: #2563eb; }
+  .map-grid {
+    background-image:
+      linear-gradient(rgba(37,99,235,.06) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(37,99,235,.06) 1px, transparent 1px);
+    background-size: 38px 38px;
+  }
+}
+
+/* Leaflet container baseline */
+.leaflet-container { font-family: inherit; }
