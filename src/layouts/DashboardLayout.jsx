@@ -1,12 +1,19 @@
-import { Suspense } from 'react';
-import { Outlet, useLocation } from 'react-router-dom';
-import { AnimatePresence, motion } from 'framer-motion';
-import { Sidebar } from './components/Sidebar';
-import { Topbar } from './components/Topbar';
-import { PageLoader } from '@/components/ui';
+import { Suspense, useEffect } from "react";
+import { Outlet, useLocation } from "react-router-dom";
+import { AnimatePresence, motion } from "framer-motion";
+import { Sidebar } from "./components/Sidebar";
+import { Topbar } from "./components/Topbar";
+import { PageLoader } from "@/components/ui";
+import { useAccountStore } from "@/store";
 
 export function DashboardLayout() {
   const location = useLocation();
+  const loadAccounts = useAccountStore((s) => s.loadAccounts);
+
+  // Load account list from API once when the dashboard mounts
+  useEffect(() => {
+    loadAccounts();
+  }, [loadAccounts]);
   return (
     <div className="min-h-screen flex bg-slate-50">
       <Sidebar />
@@ -17,7 +24,9 @@ export function DashboardLayout() {
             <AnimatePresence mode="wait">
               <motion.div
                 key={location.pathname}
-                initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0 }}
                 transition={{ duration: 0.35, ease: [0.22, 0.61, 0.36, 1] }}
               >
                 <Outlet />

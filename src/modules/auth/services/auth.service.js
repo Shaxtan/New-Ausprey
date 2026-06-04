@@ -1,28 +1,63 @@
-import { mockDelay } from '@/services/mockDelay';
-
-// Mock auth API. Swap each body for apiClient.post('/auth/...') when live.
-const makeToken = () => `tok_${Math.random().toString(36).slice(2)}${Date.now().toString(36)}`;
-
-const titleCase = (str) =>
-  str.split(/[._\-\s]+/).filter(Boolean).map((w) => w[0].toUpperCase() + w.slice(1)).join(' ');
+/**
+ * auth.service.js  — New-Ausprey
+ *
+ * Connects to the real Ausprey backend.
+ * POST /users/users/signin  { username, password, signInHere: true }
+ *
+ * The `username` field accepts BOTH a username string and an e-mail address —
+ * the backend handles both.  The LoginPage sends whatever the user typed.
+ */
+import apiService from "@/services/apiService";
 
 export const authService = {
-  login: ({ email, password }) => {
-    if (!email || !password) return Promise.reject({ message: 'Email and password are required.' });
-    if (password.length < 6) return Promise.reject({ message: 'Invalid credentials. Please try again.' });
-    return mockDelay(
-      { token: makeToken(), user: { name: titleCase(email.split('@')[0] || 'User'), email, role: 'Fleet Manager' } },
-      700
-    );
-  },
+  /**
+   * @param {{ identifier: string, password: string }} credentials
+   *   `identifier` can be either a username or an e-mail address.
+   */
+  login: async ({ identifier, password }) => {
+    if (!identifier || !password) {
+      return Promise.reject({
+        message: "Username/email and password are required.",
+      });
+    }
 
-  signup: ({ name, email, password, company }) => {
-    if (!name || !email || !password) return Promise.reject({ message: 'Please complete all required fields.' });
-    if (password.length < 6) return Promise.reject({ message: 'Password must be at least 6 characters.' });
-    return mockDelay(
-      { token: makeToken(), user: { name, email, role: 'Fleet Manager', company: company || null } },
-      800
+    const res = await apiService.login({ username: identifier, password });
+    const body = res?.data;
+
+    // resultCode 208 = "already signed in elsewhere" — surface the message
+    if (body?.resultCode === 208) {
+      return Promise.reject({ message: body.message, code: 208 });
+    }
+
+    if (!body?.data) {
+      return Promise.reject({
+        message:
+          body?.message || "Login failed. Please check your credentials.",
+      });
+    }
+
+    // Save raw token details the same way the old project did
+    const tokenDetails = body.data;
+    tokenDetails.expireDate = new Date(
+      new Date().getTime() + (tokenDetails.expiresIn ?? 86400) * 1000,
     );
+    localStorage.setItem("userDetails", JSON.stringify(tokenDetails));
+
+    // Also persist in the new key so apiClient interceptor picks it up
+    if (tokenDetails.token) {
+      localStorage.setItem("auspre-token", tokenDetails.token);
+    }
+
+    // Return a shape that useAuthStore.login({ user, token }) expects
+    return {
+      token: tokenDetails.token ?? tokenDetails.jwtToken ?? "",
+      user: {
+        name: tokenDetails.name ?? tokenDetails.userName ?? "User",
+        email: tokenDetails.email ?? identifier,
+        role: tokenDetails.role ?? tokenDetails.userType ?? "Fleet Manager",
+        accountId: tokenDetails.accountId ?? tokenDetails.accid ?? 1,
+      },
+    };
   },
 };
 
