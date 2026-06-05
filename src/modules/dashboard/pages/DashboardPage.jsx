@@ -7,7 +7,7 @@ import {
   Gauge,
   Map,
 } from "lucide-react";
-import { PageHeader, KpiCard, Trend } from "@/components/common";
+import { PageHeader, KpiCard } from "@/components/common";
 import { formatNumber } from "@/utils";
 import {
   useDashboardData,
@@ -18,17 +18,18 @@ import { FleetLiveStrip } from "../components/FleetLiveStrip";
 import { VehicleStatusCard } from "../components/VehicleStatusCard";
 import { DailyMovementCard } from "../components/DailyMovementCard";
 import { TopSpeedingCard } from "../components/TopSpeedingCard";
-import { AlertsSummaryCard } from "../components/AlertsSummaryCard";
-import { RecentAlertsCard } from "../components/RecentAlertsCard";
+import { FleetTableCard } from "../components/FleetTableCard";
 
 export default function DashboardPage() {
   const { data, isLoading } = useDashboardData();
   const statusQuery = useVehicleStatus();
   const unreachableQuery = useUnreachableDevices();
 
-  // summary shape: { totalVehicles, activeVehicles, live: { online, idle, stopped, offline, unreachable } }
   const summary = data?.summary ?? null;
   const live = summary?.live ?? null;
+
+  // Raw VTS list straight from dashboard API response
+  const vtsRaw = data?.VTS?.available ?? [];
 
   const kpis = [
     {
@@ -113,18 +114,13 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* Alerts row */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
-        <div className="lg:col-span-4">
-          <AlertsSummaryCard data={[]} loading={isLoading} />
-        </div>
-        <div className="lg:col-span-8">
-          <RecentAlertsCard
-            data={unreachableQuery.data ?? []}
-            loading={unreachableQuery.isLoading}
-          />
-        </div>
-      </div>
+      {/* Fleet device table — VTS tab + Unreachable tab */}
+      <FleetTableCard
+        vtsData={vtsRaw}
+        unreachableData={unreachableQuery.data ?? []}
+        loadingVts={isLoading}
+        loadingUnreachable={unreachableQuery.isLoading}
+      />
     </div>
   );
 }
