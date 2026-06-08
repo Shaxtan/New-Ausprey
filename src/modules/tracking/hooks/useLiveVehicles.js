@@ -8,7 +8,7 @@ export const useLiveVehicles = () => {
   return useQuery({
     queryKey: ["tracking", "live", accid],
     queryFn: () => trackingService.getLiveVehicles(accid ?? 1),
-    refetchInterval: 15_000,
+    refetchInterval: 3 * 60 * 1000,
     enabled: accid != null,
   });
 };
