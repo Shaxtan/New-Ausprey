@@ -169,7 +169,7 @@ function TruckMarker({ position, bearing, vehicle, liveData }) {
     // The flaticon truck image faces East (right) at 0°.
     // Road polylines use standard geographic bearing (0° = North).
     // Offset: -90° so the truck nose aligns with the direction of travel.
-    const rotation = bearing - 90;
+    const rotation = bearing - 115;
     inner.style.transform = `rotate(${rotation}deg)`;
     prevBearingRef.current = rotation;
   }, [bearing]);
