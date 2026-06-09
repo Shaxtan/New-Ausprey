@@ -107,29 +107,86 @@ const markerColor = (s) =>
         ? "#f59e0b"
         : "#94a3b8";
 
-const buildTruckIcon = (status, bearing, highlighted = false) => {
+const TRUCK_ICON_URL =
+  "https://cdn-icons-png.flaticon.com/512/1048/1048329.png";
+
+// Stable icon instance — created ONCE, rotation updated via DOM mutation (no flicker)
+const TRUCK_ICON_INSTANCE = L.divIcon({
+  className: "truck-marker-icon",
+  html: `<div id="truck-inner" style="
+    width:40px;height:40px;
+    transform:rotate(0deg);
+    transition:transform 0.6s ease-out;
+    display:flex;justify-content:center;align-items:center;
+    filter:drop-shadow(0px 3px 5px rgba(0,0,0,0.4));
+    will-change:transform;
+  ">
+    <img src="${TRUCK_ICON_URL}" style="width:100%;height:100%;display:block;" />
+  </div>`,
+  iconSize: [40, 40],
+  iconAnchor: [20, 20],
+  popupAnchor: [0, -20],
+});
+
+// Small coloured pin dot for non-selected fleet vehicles
+const buildDotIcon = (status) => {
   const color = markerColor(status);
-  const size = highlighted ? 40 : 32;
   return L.divIcon({
     className: "",
     html: `<div style="
-      width:${size}px;height:${size}px;
-      background:${color};border:2.5px solid #fff;
-      border-radius:50%;
-      box-shadow:0 3px 10px rgba(0,0,0,0.3);
-      display:flex;align-items:center;justify-content:center;
-      transform:rotate(${bearing - 90}deg);
-      transition:transform 0.3s ease;
+      background-color:${color};
+      width:18px;height:18px;
+      border-radius:50% 50% 50% 0;
+      border:3px solid white;
+      box-shadow:0 2px 8px rgba(0,0,0,0.4);
+      transform:rotate(-45deg);
+      position:relative;
     ">
-      <svg width="${size * 0.5}" height="${size * 0.5}" viewBox="0 0 24 24" fill="white">
-        <path d="M1 3h15v13H1z"/><path d="M16 8h4l3 3v5h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/>
-      </svg>
+      <div style="
+        position:absolute;top:3px;left:3px;
+        width:6px;height:6px;
+        background:white;border-radius:50%;
+      "></div>
     </div>`,
-    iconSize: [size, size],
-    iconAnchor: [size / 2, size / 2],
-    popupAnchor: [0, -size / 2],
+    iconSize: [18, 18],
+    iconAnchor: [9, 18],
+    popupAnchor: [0, -20],
   });
 };
+
+// Updates the truck rotation in-place via DOM — zero flicker, smooth CSS transition
+function TruckMarker({ position, bearing, vehicle, liveData }) {
+  const markerRef = useRef(null);
+  const prevBearingRef = useRef(0);
+
+  // Mutate the rotation style directly — never recreate the icon
+  useEffect(() => {
+    if (!markerRef.current) return;
+    const el = markerRef.current.getElement();
+    if (!el) return;
+    const inner = el.querySelector("#truck-inner");
+    if (!inner) return;
+    // The flaticon truck image faces East (right) at 0°.
+    // Road polylines use standard geographic bearing (0° = North).
+    // Offset: -90° so the truck nose aligns with the direction of travel.
+    const rotation = bearing - 90;
+    inner.style.transform = `rotate(${rotation}deg)`;
+    prevBearingRef.current = rotation;
+  }, [bearing]);
+
+  if (!position) return null;
+
+  return (
+    <Marker ref={markerRef} position={position} icon={TRUCK_ICON_INSTANCE}>
+      <Popup>
+        <div className="text-sm font-bold">{vehicle?.name}</div>
+        <div className="text-xs text-slate-500">
+          {vehicle?.status} · {liveData?.speed ?? vehicle?.speed ?? 0} km/h
+        </div>
+      </Popup>
+    </Marker>
+  );
+}
 
 // ─── Map sub-components ───────────────────────────────────────────────────────
 function MapFixer() {
@@ -272,16 +329,19 @@ function DeviceListPanel({
   );
 }
 
-// ─── Info overlay on map ──────────────────────────────────────────────────────
-function InfoRow({ icon: Icon, label, value }) {
+// ─── Bottom info bar ──────────────────────────────────────────────────────────
+function StatCell({ icon: Icon, label, value, iconColor = "text-slate-400" }) {
   return (
-    <div className="flex items-center justify-between py-1.5 border-b border-slate-50 last:border-0">
-      <div className="flex items-center gap-1.5 text-slate-400 text-xs">
-        <Icon size={13} /> {label}
+    <div className="flex flex-col items-center justify-center px-4 py-3 border-r border-slate-100 last:border-r-0 min-w-[100px]">
+      <div className={cn("mb-0.5", iconColor)}>
+        <Icon size={16} />
       </div>
-      <span className="text-xs font-semibold text-slate-700 text-right max-w-[130px] truncate">
+      <div className="text-base font-extrabold text-slate-800 leading-tight">
         {value ?? "—"}
-      </span>
+      </div>
+      <div className="text-[11px] text-slate-400 font-medium mt-0.5">
+        {label}
+      </div>
     </div>
   );
 }
@@ -289,56 +349,97 @@ function InfoRow({ icon: Icon, label, value }) {
 function LiveInfoOverlay({ vehicle, liveData }) {
   if (!vehicle) return null;
   const d = liveData ?? vehicle;
+
+  const speed = Number(d.speed ?? vehicle.speed ?? 0);
+  const distance = Number(d.distance ?? 0).toFixed(1);
+  const status = vehicle.status ?? "—";
+  const ignition = d.ign === "Y" ? "ON" : "OFF";
+  const battery = d.misc?.batteryPercentage
+    ? `${d.misc.batteryPercentage} V`
+    : "—";
+  const odometer = d.misc?.odometer
+    ? `${Number(d.misc.odometer).toLocaleString()} km`
+    : "—";
+  const updated = d.devTs ?? d.cts ?? vehicle.lastUpdate ?? "—";
+  const address = d.address ?? "—";
+  const vehName = d.vehnum ?? vehicle.name ?? "—";
+
+  // Status dot colour
+  const statusColor =
+    status === "Running"
+      ? "text-emerald-500"
+      : status === "Stopped"
+        ? "text-rose-500"
+        : status === "Idle"
+          ? "text-amber-500"
+          : "text-slate-400";
+
   return (
-    <div className="absolute bottom-4 right-4 z-[900] w-64 bg-white/95 backdrop-blur rounded-2xl shadow-xl border border-slate-100 p-4">
-      <div className="flex items-center gap-2 mb-3">
-        <div className="w-8 h-8 rounded-xl bg-slate-800 flex items-center justify-center shrink-0">
-          <Truck size={15} className="text-white" />
-        </div>
-        <div>
-          <div className="text-sm font-extrabold text-slate-900">
-            {d.vehnum ?? vehicle.name}
+    <div className="absolute bottom-0 left-0 right-0 z-[900] bg-white/97 backdrop-blur border-t border-slate-200 shadow-lg">
+      {/* Vehicle name + address strip */}
+      <div className="flex items-center gap-3 px-4 py-1.5 border-b border-slate-100">
+        <div className="flex items-center gap-2 shrink-0">
+          <div className="w-6 h-6 rounded-lg bg-slate-800 flex items-center justify-center">
+            <Truck size={12} className="text-white" />
           </div>
-          <div className="text-[11px] text-slate-400">
-            {d.deviceType ?? vehicle.deviceType ?? "—"}
-          </div>
-        </div>
-      </div>
-      <InfoRow
-        icon={Gauge}
-        label="Speed"
-        value={`${d.speed ?? vehicle.speed ?? 0} km/h`}
-      />
-      <InfoRow icon={Activity} label="Status" value={vehicle.status} />
-      <InfoRow
-        icon={Zap}
-        label="Ignition"
-        value={d.ign === "Y" ? "ON" : "OFF"}
-      />
-      <InfoRow
-        icon={Navigation}
-        label="Bearing"
-        value={d.disha != null ? `${d.disha}°` : "—"}
-      />
-      <InfoRow
-        icon={Battery}
-        label="Battery"
-        value={
-          d.misc?.batteryPercentage ? `${d.misc.batteryPercentage} V` : "—"
-        }
-      />
-      <InfoRow
-        icon={Clock}
-        label="Updated"
-        value={d.devTs ?? d.cts ?? vehicle.lastUpdate}
-      />
-      <div className="mt-2 pt-2 border-t border-slate-100">
-        <div className="flex items-start gap-1.5">
-          <MapPin size={12} className="text-slate-400 mt-0.5 shrink-0" />
-          <span className="text-[11px] text-slate-500 leading-tight">
-            {d.address ?? "—"}
+          <span className="text-sm font-extrabold text-slate-800">
+            {vehName}
           </span>
         </div>
+        <div className="flex items-center gap-1.5 text-xs text-slate-500 truncate">
+          <MapPin size={12} className="text-slate-400 shrink-0" />
+          <span className="truncate">{address}</span>
+        </div>
+        <div className="ml-auto shrink-0 flex items-center gap-1 text-xs text-slate-400">
+          <Clock size={11} />
+          <span>{updated}</span>
+        </div>
+      </div>
+
+      {/* Stats row */}
+      <div className="flex items-stretch overflow-x-auto">
+        <StatCell
+          icon={Gauge}
+          label="Speed"
+          value={`${speed} km/h`}
+          iconColor="text-blue-500"
+        />
+        <StatCell
+          icon={Navigation}
+          label="Distance"
+          value={`${distance} km`}
+          iconColor="text-emerald-500"
+        />
+        <StatCell
+          icon={Activity}
+          label="Status"
+          value={status}
+          iconColor={statusColor}
+        />
+        <StatCell
+          icon={Zap}
+          label="Ignition"
+          value={ignition}
+          iconColor={ignition === "ON" ? "text-emerald-500" : "text-rose-400"}
+        />
+        <StatCell
+          icon={Battery}
+          label="Battery"
+          value={battery}
+          iconColor="text-amber-500"
+        />
+        <StatCell
+          icon={RotateCcw}
+          label="Odometer"
+          value={odometer}
+          iconColor="text-purple-500"
+        />
+        <StatCell
+          icon={Navigation}
+          label="Bearing"
+          value={d.disha != null ? `${d.disha}°` : "—"}
+          iconColor="text-slate-400"
+        />
       </div>
     </div>
   );
@@ -551,7 +652,7 @@ export default function TrackingPage() {
             center={mapCenter}
             zoom={13}
             scrollWheelZoom
-            style={{ height: "100%", width: "100%" }}
+            style={{ height: "100%", width: "100%", paddingBottom: "96px" }}
           >
             <MapFixer />
             <TileLayer
@@ -572,19 +673,14 @@ export default function TrackingPage() {
               />
             )}
 
-            {/* All fleet vehicles as small dots */}
+            {/* All fleet vehicles as small coloured pin dots */}
             {allMarkers
               .filter((m) => m.id !== selectedId)
               .map((m) => (
                 <Marker
                   key={m.id}
                   position={[m.lat, m.lng]}
-                  icon={L.divIcon({
-                    className: "",
-                    html: `<div style="width:12px;height:12px;background:${markerColor(m.status)};border:2px solid #fff;border-radius:50%;box-shadow:0 1px 4px rgba(0,0,0,.2)"></div>`,
-                    iconSize: [12, 12],
-                    iconAnchor: [6, 6],
-                  })}
+                  icon={buildDotIcon(m.status)}
                   eventHandlers={{ click: () => setSelectedId(m.id) }}
                 >
                   <Popup>
@@ -596,22 +692,14 @@ export default function TrackingPage() {
                 </Marker>
               ))}
 
-            {/* Selected vehicle — animated truck marker */}
-            {selectedVehicle && renderedPos && (
-              <Marker
+            {/* Selected vehicle — stable truck marker, rotation via DOM mutation */}
+            {selectedVehicle && (
+              <TruckMarker
                 position={renderedPos}
-                icon={buildTruckIcon(selectedVehicle.status, bearing, true)}
-              >
-                <Popup>
-                  <div className="text-sm font-bold">
-                    {selectedVehicle.name}
-                  </div>
-                  <div className="text-xs text-slate-500">
-                    {selectedVehicle.status} ·{" "}
-                    {liveData?.speed ?? selectedVehicle.speed ?? 0} km/h
-                  </div>
-                </Popup>
-              </Marker>
+                bearing={bearing}
+                vehicle={selectedVehicle}
+                liveData={liveData}
+              />
             )}
           </MapContainer>
 

@@ -8,21 +8,21 @@
  * Mirrors the old Ausprey "Projects" table functionality with the
  * New-Ausprey design system (Tailwind / shadcn-style).
  */
-import { useMemo, useState } from "react";
+import { useMemo, useState, useRef, useCallback, useEffect } from "react";
 import {
   Search,
   ExternalLink,
-  Wifi,
-  WifiOff,
-  Play,
-  PauseCircle,
-  Clock,
-  AlertCircle,
-  Download,
+  Building2,
+  X,
+  CheckCircle,
+  XCircle,
+  Loader2,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { Card, Tabs, Skeleton, StatusBadge } from "@/components/ui";
+import { Card, Tabs, Skeleton } from "@/components/ui";
 import { cn } from "@/utils";
+import apiService from "@/services/apiService";
+import { useAccountStore } from "@/store";
 
 // ─── Status helpers ───────────────────────────────────────────────────────────
 function getVtsStatus(item) {
@@ -51,8 +51,8 @@ const STATUS_META = {
   },
   stopped: {
     label: "Stopped",
-    color: "text-blue-600   bg-blue-50",
-    dot: "bg-blue-500",
+    color: "text-rose-600   bg-rose-50",
+    dot: "bg-rose-500",
   },
   offline: {
     label: "Offline",
@@ -73,6 +73,168 @@ function StatusChip({ status }) {
       <span className={cn("w-1.5 h-1.5 rounded-full", m.dot)} />
       {m.label}
     </span>
+  );
+}
+
+// ─── Account status popup ─────────────────────────────────────────────────────
+function AccountPopup({ name, data, loading, error, anchorRef, onClose }) {
+  const popupRef = useRef(null);
+
+  // Close on outside click
+  useEffect(() => {
+    const handler = (e) => {
+      if (
+        popupRef.current &&
+        !popupRef.current.contains(e.target) &&
+        anchorRef?.current &&
+        !anchorRef.current.contains(e.target)
+      ) {
+        onClose();
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [onClose, anchorRef]);
+
+  const statusLabel =
+    data?.status === "A"
+      ? "Active"
+      : data?.status === "I"
+        ? "Inactive"
+        : (data?.status ?? "—");
+  const isActive = data?.status === "A";
+
+  return (
+    <div
+      ref={popupRef}
+      className="absolute z-[9999] left-0 top-full mt-1 w-56 bg-white rounded-xl shadow-xl border border-slate-200 p-3 animate-fade-in"
+      style={{ minWidth: 210 }}
+    >
+      {/* Header */}
+      <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center gap-1.5">
+          <Building2 size={13} className="text-primary" />
+          <span className="text-xs font-bold text-slate-700">Account Info</span>
+        </div>
+        <button
+          onClick={onClose}
+          className="text-slate-400 hover:text-slate-600 transition"
+        >
+          <X size={13} />
+        </button>
+      </div>
+
+      {loading && (
+        <div className="flex items-center gap-2 py-2 text-xs text-slate-400">
+          <Loader2 size={13} className="animate-spin" /> Fetching…
+        </div>
+      )}
+
+      {error && !loading && (
+        <div className="text-xs text-rose-500 py-1">{error}</div>
+      )}
+
+      {data && !loading && (
+        <div className="space-y-1.5">
+          <Row label="Name" value={data.name ?? "—"} />
+          <Row label="ID" value={data.id ?? "—"} />
+          <Row label="Type" value={data.type ?? "—"} />
+          <Row label="Parent" value={data.parentAccountId ?? "—"} />
+          <div className="flex items-center justify-between pt-1 border-t border-slate-100">
+            <span className="text-[11px] text-slate-400">Status</span>
+            <span
+              className={cn(
+                "inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full",
+                isActive
+                  ? "bg-emerald-50 text-emerald-700"
+                  : "bg-rose-50 text-rose-600",
+              )}
+            >
+              {isActive ? <CheckCircle size={11} /> : <XCircle size={11} />}
+              {statusLabel}
+            </span>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function Row({ label, value }) {
+  return (
+    <div className="flex items-center justify-between">
+      <span className="text-[11px] text-slate-400">{label}</span>
+      <span className="text-[11px] font-semibold text-slate-700">
+        {String(value)}
+      </span>
+    </div>
+  );
+}
+
+// Hook: resolves accountName → accountId via dropdown cache, then fetches status
+function useAccountPopup() {
+  const accounts = useAccountStore((s) => s.accounts); // already loaded
+  const [popup, setPopup] = useState(null); // { name, data, loading, error, anchorRef }
+
+  const open = useCallback(
+    async (accountName, anchorRef) => {
+      if (!accountName || accountName === "—") return;
+
+      // Find account id from the dropdown cache
+      const found = accounts.find(
+        (a) =>
+          (a.label ?? a.name ?? "").toLowerCase() === accountName.toLowerCase(),
+      );
+
+      setPopup({
+        name: accountName,
+        data: null,
+        loading: true,
+        error: null,
+        anchorRef,
+      });
+
+      if (!found) {
+        setPopup((p) => ({
+          ...p,
+          loading: false,
+          error: `Account "${accountName}" not found in dropdown.`,
+        }));
+        return;
+      }
+
+      try {
+        const data = await apiService.getAccountStatus(found.id);
+        setPopup((p) => ({ ...p, data, loading: false }));
+      } catch (e) {
+        setPopup((p) => ({
+          ...p,
+          loading: false,
+          error: e?.message ?? "Failed to load account.",
+        }));
+      }
+    },
+    [accounts],
+  );
+
+  const close = useCallback(() => setPopup(null), []);
+
+  return { popup, open, close };
+}
+
+// Clickable account name cell
+function AccountNameCell({ name, onOpen }) {
+  const ref = useRef(null);
+  if (!name || name === "—")
+    return <span className="text-xs text-slate-400">—</span>;
+  return (
+    <button
+      ref={ref}
+      onClick={() => onOpen(name, ref)}
+      className="text-xs font-medium text-primary hover:underline whitespace-nowrap text-left"
+    >
+      {name}
+    </button>
   );
 }
 
@@ -107,7 +269,7 @@ function FilterBar({ active, counts, onChange }) {
 }
 
 // ─── VTS table ────────────────────────────────────────────────────────────────
-function VtsTable({ rows, loading, onImeiClick }) {
+function VtsTable({ rows, loading, onImeiClick, onAccountClick }) {
   if (loading)
     return (
       <div className="space-y-2 p-4">
@@ -158,8 +320,8 @@ function VtsTable({ rows, loading, onImeiClick }) {
               <td className="px-3 py-2.5 text-xs text-slate-400 font-medium">
                 {i + 1}
               </td>
-              <td className="px-3 py-2.5 text-xs text-slate-700 whitespace-nowrap">
-                {r.accountName || "—"}
+              <td className="px-3 py-2.5 whitespace-nowrap relative">
+                <AccountNameCell name={r.accountName} onOpen={onAccountClick} />
               </td>
               <td className="px-3 py-2.5">
                 <button
@@ -253,7 +415,7 @@ function VtsTable({ rows, loading, onImeiClick }) {
 }
 
 // ─── Unreachable table ────────────────────────────────────────────────────────
-function UnreachableTable({ rows, loading, onImeiClick }) {
+function UnreachableTable({ rows, loading, onImeiClick, onAccountClick }) {
   if (loading)
     return (
       <div className="space-y-2 p-4">
@@ -298,8 +460,8 @@ function UnreachableTable({ rows, loading, onImeiClick }) {
               <td className="px-3 py-2.5 text-xs text-slate-400 font-medium">
                 {i + 1}
               </td>
-              <td className="px-3 py-2.5 text-xs text-slate-700 whitespace-nowrap">
-                {r.accountName || "—"}
+              <td className="px-3 py-2.5 whitespace-nowrap relative">
+                <AccountNameCell name={r.accountName} onOpen={onAccountClick} />
               </td>
               <td className="px-3 py-2.5 text-xs text-slate-500">
                 {r.accid || "—"}
@@ -344,6 +506,11 @@ export function FleetTableCard({
   loadingUnreachable,
 }) {
   const navigate = useNavigate();
+  const {
+    popup,
+    open: openAccountPopup,
+    close: closeAccountPopup,
+  } = useAccountPopup();
 
   const [tab, setTab] = useState("vts");
   const [vtsFilter, setVtsFilter] = useState("all");
@@ -353,7 +520,7 @@ export function FleetTableCard({
 
   const handleImeiClick = (imei, accid) => {
     if (!imei || imei === "N/A") return;
-    navigate(`/live-track?imei=${imei}`, {
+    navigate("/tracking", {
       state: { targetImei: imei, targetAccountId: accid },
     });
   };
@@ -484,15 +651,29 @@ export function FleetTableCard({
             rows={pagedRows}
             loading={loadingVts}
             onImeiClick={handleImeiClick}
+            onAccountClick={openAccountPopup}
           />
         ) : (
           <UnreachableTable
             rows={pagedRows}
             loading={loadingUnreachable}
             onImeiClick={handleImeiClick}
+            onAccountClick={openAccountPopup}
           />
         )}
       </div>
+
+      {/* Account status popup */}
+      {popup && (
+        <AccountPopup
+          name={popup.name}
+          data={popup.data}
+          loading={popup.loading}
+          error={popup.error}
+          anchorRef={popup.anchorRef}
+          onClose={closeAccountPopup}
+        />
+      )}
 
       {/* Pagination */}
       {totalPages > 1 && (

@@ -147,6 +147,18 @@ class ApiService {
     });
   }
 
+   getAccountStatus(accountId) {
+    return this.getRequest(
+      `/account-status?accountId=${accountId}`,
+      null,
+      true,
+      SERVICES.accounts
+    ).then((res) => {
+      if (res?.data?.resultCode === 1) return res.data.data;
+      throw new Error(res?.data?.message || 'Failed to fetch account status');
+    });
+  }
+
   // ── Dashboard ─────────────────────────────────────────────────────────────
 
   /**
