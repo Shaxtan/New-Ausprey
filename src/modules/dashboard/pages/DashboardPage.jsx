@@ -27,8 +27,6 @@ export default function DashboardPage() {
 
   const summary = data?.summary ?? null;
   const live = summary?.live ?? null;
-
-  // Raw VTS list straight from dashboard API response
   const vtsRaw = data?.VTS?.available ?? [];
 
   const kpis = [
@@ -76,28 +74,22 @@ export default function DashboardPage() {
         title="Dashboard Overview"
         description="Real-time visibility across your entire fleet."
         actions={
-          <>
+          <div className="flex items-center gap-2">
             <button className="hidden sm:inline-flex items-center gap-2 text-sm font-semibold text-slate-600 bg-white border border-slate-200 px-3.5 py-2 rounded-lg hover:bg-slate-50 transition">
               All Groups <ChevronDown size={15} className="text-slate-400" />
             </button>
-            <button className="inline-flex items-center gap-2 text-sm font-semibold text-slate-600 bg-white border border-slate-200 px-3.5 py-2 rounded-lg hover:bg-slate-50 transition">
-              <Clock size={15} className="text-slate-400" /> Today
-            </button>
-          </>
+          </div>
         }
       />
 
-      {/* Live status strip */}
       <FleetLiveStrip data={live} loading={isLoading} />
 
-      {/* KPI cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-4 mb-5">
         {kpis.map((k, i) => (
           <KpiCard key={k.label} {...k} index={i} loading={isLoading} />
         ))}
       </div>
 
-      {/* Charts row */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 mb-5">
         <div className="lg:col-span-4">
           <VehicleStatusCard
@@ -114,7 +106,6 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* Fleet device table — VTS tab + Unreachable tab */}
       <FleetTableCard
         vtsData={vtsRaw}
         unreachableData={unreachableQuery.data ?? []}

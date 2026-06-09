@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useLocation } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   Menu,
@@ -13,11 +13,85 @@ import {
   Check,
   Building2,
   HelpCircle,
+  RotateCcw,
+  Clock,
 } from "lucide-react";
 import { useUIStore, useAuthStore, useAccountStore } from "@/store";
+import { useQueryClient } from "@tanstack/react-query";
 import { Avatar } from "@/components/ui";
 import { PATHS } from "@/constants/paths";
 import { cn } from "@/utils";
+
+// ─── Dashboard refresh control ────────────────────────────────────────────────
+const REFRESH_MS = 5 * 60 * 1000; // 5 minutes
+
+function RefreshControl() {
+  const qc = useQueryClient();
+  const accid = useAccountStore((s) => s.selectedAccount?.id);
+  const location = useLocation();
+
+  const [secondsLeft, setSecondsLeft] = useState(REFRESH_MS / 1000);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const timerRef = useRef(null);
+  const countRef = useRef(null);
+
+  const doRefresh = () => {
+    setIsRefreshing(true);
+    setSecondsLeft(REFRESH_MS / 1000);
+    qc.invalidateQueries({ queryKey: ["dashboard", "data", accid] });
+    qc.invalidateQueries({ queryKey: ["dashboard", "unreachable", accid] });
+    setTimeout(() => setIsRefreshing(false), 1500);
+  };
+
+  // Auto-refresh every 5 min
+  useEffect(() => {
+    timerRef.current = setInterval(doRefresh, REFRESH_MS);
+    return () => clearInterval(timerRef.current);
+  }, [accid]);
+
+  // Countdown ticker
+  useEffect(() => {
+    setSecondsLeft(REFRESH_MS / 1000);
+    countRef.current = setInterval(() => {
+      setSecondsLeft((s) => (s <= 1 ? REFRESH_MS / 1000 : s - 1));
+    }, 1000);
+    return () => clearInterval(countRef.current);
+  }, [accid]);
+
+  // Only render on dashboard — must be AFTER all hooks
+  if (location.pathname !== PATHS.DASHBOARD) return null;
+
+  const mins = Math.floor(secondsLeft / 60);
+  const secs = String(secondsLeft % 60).padStart(2, "0");
+
+  return (
+    <div className="hidden sm:flex items-center gap-2 border-r border-slate-200 pr-3 mr-1">
+      {/* Countdown */}
+      <div className="flex items-center gap-1.5 text-xs text-slate-400 font-medium">
+        <Clock size={12} className="text-slate-300" />
+        <span className="font-mono tabular-nums">
+          {mins}:{secs}
+        </span>
+      </div>
+
+      {/* Manual refresh button */}
+      <button
+        onClick={doRefresh}
+        disabled={isRefreshing}
+        title="Refresh dashboard data"
+        className={cn(
+          "flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold border transition",
+          isRefreshing
+            ? "text-slate-300 border-slate-100 bg-slate-50 cursor-not-allowed"
+            : "text-slate-600 border-slate-200 bg-white hover:bg-slate-50 hover:border-primary/40",
+        )}
+      >
+        <RotateCcw size={12} className={cn(isRefreshing && "animate-spin")} />
+        {isRefreshing ? "Refreshing…" : "Refresh"}
+      </button>
+    </div>
+  );
+}
 
 // ─── Account Selector ────────────────────────────────────────────────────────
 function AccountSelector() {
@@ -334,6 +408,9 @@ export function Topbar() {
 
       {/* ── Right actions ── */}
       <div className="flex items-center gap-1.5 sm:gap-2 ml-auto shrink-0">
+        {/* Dashboard refresh control — visible only on /dashboard */}
+        <RefreshControl />
+
         {/* Mobile search */}
         <button className="md:hidden w-9 h-9 flex items-center justify-center rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition">
           <Search size={18} />

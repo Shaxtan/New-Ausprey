@@ -336,10 +336,10 @@ function StatCell({ icon: Icon, label, value, iconColor = "text-slate-400" }) {
       <div className={cn("mb-0.5", iconColor)}>
         <Icon size={16} />
       </div>
-      <div className="text-base font-extrabold text-slate-800 leading-tight">
+      <div className="text-base font-extrabold text-slate-900 leading-tight">
         {value ?? "—"}
       </div>
-      <div className="text-[11px] text-slate-400 font-medium mt-0.5">
+      <div className="text-[11px] text-slate-500 font-semibold mt-0.5">
         {label}
       </div>
     </div>
@@ -382,15 +382,15 @@ function LiveInfoOverlay({ vehicle, liveData }) {
           <div className="w-6 h-6 rounded-lg bg-slate-800 flex items-center justify-center">
             <Truck size={12} className="text-white" />
           </div>
-          <span className="text-sm font-extrabold text-slate-800">
+          <span className="text-sm font-extrabold text-slate-900">
             {vehName}
           </span>
         </div>
-        <div className="flex items-center gap-1.5 text-xs text-slate-500 truncate">
+        <div className="flex items-center gap-1.5 text-xs text-slate-700 truncate">
           <MapPin size={12} className="text-slate-400 shrink-0" />
           <span className="truncate">{address}</span>
         </div>
-        <div className="ml-auto shrink-0 flex items-center gap-1 text-xs text-slate-400">
+        <div className="ml-auto shrink-0 flex items-center gap-1 text-xs text-slate-600 font-medium">
           <Clock size={11} />
           <span>{updated}</span>
         </div>
@@ -471,9 +471,10 @@ export default function TrackingPage() {
 
   // Live telemetry for the selected vehicle
   const [liveData, setLiveData] = useState(null);
-  const [route, setRoute] = useState([]); // accumulated GPS trail
-  const [animPos, setAnimPos] = useState(null); // smooth animated position
+  const [route, setRoute] = useState([]);
+  const [animPos, setAnimPos] = useState(null);
   const [bearing, setBearing] = useState(0);
+  const [flyTarget, setFlyTarget] = useState(null); // real GPS destination — triggers FlyTo once per fix
   const animFrameRef = useRef(null);
   const prevPosRef = useRef(null);
   const liveIntervalRef = useRef(null);
@@ -537,6 +538,7 @@ export default function TrackingPage() {
       setLiveData(d);
       const newPos = [parseFloat(d.lat), parseFloat(d.lng)];
       if (!isNaN(newPos[0]) && !isNaN(newPos[1])) {
+        setFlyTarget(newPos); // pan map to real GPS destination once
         setRoute((prev) => {
           const prevPos = prev.length ? prev[prev.length - 1] : null;
           animateTo(prevPos, newPos, 28_000);
@@ -557,6 +559,7 @@ export default function TrackingPage() {
     setAnimPos(null);
     setRoute([]);
     setLiveData(null);
+    setFlyTarget(null);
     prevPosRef.current = null;
     setBearing(0);
     if (liveIntervalRef.current) clearInterval(liveIntervalRef.current);
@@ -585,11 +588,12 @@ export default function TrackingPage() {
     return null;
   }, [animPos, route, selectedVehicle]);
 
+  // mapCenter is only used for the initial MapContainer render — never changes after mount
   const mapCenter = useMemo(() => {
-    if (route.length) return route[route.length - 1];
     if (selectedVehicle?.lat) return [selectedVehicle.lat, selectedVehicle.lng];
-    return [22.2587, 71.1924]; // Gujarat default
-  }, [route, selectedVehicle]);
+    return [22.2587, 71.1924];
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedId]); // only recalc when device changes, not on every GPS fix
 
   // All vehicle markers (fleet overview dots)
   const allMarkers = useMemo(
@@ -660,8 +664,8 @@ export default function TrackingPage() {
               attribution="© OpenStreetMap contributors"
             />
 
-            {/* Fly to selected vehicle's latest GPS fix */}
-            {renderedPos && <FlyTo position={renderedPos} />}
+            {/* Fly to real GPS destination only — not animation frames */}
+            {flyTarget && <FlyTo position={flyTarget} />}
 
             {/* Route polyline */}
             {route.length > 1 && (
