@@ -147,15 +147,15 @@ class ApiService {
     });
   }
 
-   getAccountStatus(accountId) {
+  getAccountStatus(accountId) {
     return this.getRequest(
       `/account-status?accountId=${accountId}`,
       null,
       true,
-      SERVICES.accounts
+      SERVICES.accounts,
     ).then((res) => {
       if (res?.data?.resultCode === 1) return res.data.data;
-      throw new Error(res?.data?.message || 'Failed to fetch account status');
+      throw new Error(res?.data?.message || "Failed to fetch account status");
     });
   }
 
@@ -423,6 +423,34 @@ class ApiService {
 
   getAllDevicesByAccount() {
     return this.getRequest("/devices", null, true, SERVICES.accounts);
+  }
+
+  // ── Load Cell Report ──────────────────────────────────────────────────────
+
+  /**
+   * POST /usage/reports/load-graph
+   * Historical load cell data for a given IMEI + date range.
+   */
+  getLoadCellHistory(imei, startDate, endDate) {
+    return this.postRequest(
+      "/reports/load-graph",
+      { imei, startDate, endDate },
+      true,
+      SERVICES.dashboard,
+    ).then((res) => res?.data);
+  }
+
+  /**
+   * POST /usage/reports/live-load-graph?IMEI=<imei>
+   * Live (last N readings) load cell data.
+   */
+  getLiveLoadGraph(imei) {
+    return this.postRequest(
+      `/reports/live-load-graph?IMEI=${imei}`,
+      {},
+      true,
+      SERVICES.dashboard,
+    ).then((res) => res?.data);
   }
 }
 
