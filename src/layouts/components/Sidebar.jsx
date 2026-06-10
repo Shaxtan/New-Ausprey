@@ -26,8 +26,8 @@ function SupportCard() {
 
 function SidebarContent({ collapsed, onNavigate, onClose }) {
   const location = useLocation();
-  const [openGroups, setOpenGroups] = useState({ admin: true });
-  const toggleGroup = (id) => setOpenGroups((g) => ({ ...g, [id]: !g[id] }));
+const [openGroups, setOpenGroups] = useState({ admin: true, iot: true });
+const toggleGroup = (id) => setOpenGroups((g) => ({ ...g, [id]: !g[id] }));
 
   return (
     <div className="h-full flex flex-col bg-sidebar">
