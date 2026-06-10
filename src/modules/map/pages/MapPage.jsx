@@ -153,4 +153,4 @@ export default function MapPage() {
       {isLoading && <p className="mt-3 text-xs text-slate-400">Loading live positions…</p>}
     </div>
   );
-}
+} 
