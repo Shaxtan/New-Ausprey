@@ -1,41 +1,68 @@
-import { useState } from 'react';
-import { Download, Calendar, ArrowLeft } from 'lucide-react';
-import { PageHeader } from '@/components/common';
-import { Button } from '@/components/ui';
-import { useReportTypes, useReportSummary, useDistanceSeries, useReportRows } from '../hooks/useReports';
-import { ReportTypeList } from '../components/ReportTypeList';
-import { ReportSummary } from '../components/ReportSummary';
-import { ReportContent } from '../components/ReportContent';
-import LoadCellReportPage from '@/modules/devices/pages/LoadCellReportPage';
-import LiveLoadPage from '@/modules/devices/pages/LiveLoadPage';
+import { useState } from "react";
+import { ArrowLeft } from "lucide-react";
+import { PageHeader } from "@/components/common";
+import { ReportTypeList } from "../components/ReportTypeList";
+import DistanceReportPage from "./DistanceReportPage";
+import HourlyReportPage from "./HourlyReportPage";
+import LoadCellReportPage from "@/modules/devices/pages/LoadCellReportPage";
+import LiveLoadPage from "@/modules/devices/pages/LiveLoadPage";
 
-// Two IoT sensor reports rendered INLINE — no routing required
-const IOT_REPORTS = [
-  { id: 'load-cell', name: 'Load Cell Report', desc: 'Sensor load data & averages' },
-  { id: 'live-load', name: 'Live Load Graph',  desc: 'Real-time load monitoring' },
+const REPORT_TYPES = [
+  {
+    id: "distance",
+    name: "Distance Report",
+    desc: "Daily distance per vehicle",
+  },
+  {
+    id: "hourly",
+    name: "Working Hour Report",
+    desc: "Session trips & account analytics",
+  },
+  { id: "idle", name: "Idle Report", desc: "Idling time analysis" },
+  { id: "speed", name: "Overspeed Report", desc: "Violations by vehicle" },
+  { id: "stoppage", name: "Stoppage Report", desc: "Stop duration & location" },
+  {
+    id: "load-cell",
+    name: "Load Cell Report",
+    desc: "Sensor load data & averages",
+  },
+  {
+    id: "live-load",
+    name: "Live Load Graph",
+    desc: "Real-time load monitoring",
+  },
 ];
 
+const FULL_PAGES = {
+  "load-cell": LoadCellReportPage,
+  "live-load": LiveLoadPage,
+};
+
+function ComingSoon({ name }) {
+  return (
+    <div className="flex items-center justify-center h-64 rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50">
+      <div className="text-center">
+        <p className="text-sm font-semibold text-slate-500">{name}</p>
+        <p className="text-xs text-slate-400 mt-1">Coming soon</p>
+      </div>
+    </div>
+  );
+}
+
 export default function ReportsPage() {
-  const types   = useReportTypes();
-  const summary = useReportSummary();
-  const series  = useDistanceSeries();
-  const rows    = useReportRows();
-  const [active, setActive] = useState('distance');
+  const [active, setActive] = useState("distance");
 
-  // Built-in report types + the two IoT reports appended to the list
-  const allTypes = [...(types.data ?? []), ...IOT_REPORTS];
-
-  // When an IoT report is selected, take over full width with a Back button
-  if (active === 'load-cell' || active === 'live-load') {
+  const FullPage = FULL_PAGES[active];
+  if (FullPage) {
     return (
       <div>
         <button
-          onClick={() => setActive('distance')}
+          onClick={() => setActive("distance")}
           className="inline-flex items-center gap-2 mb-4 px-3 py-2 text-sm font-semibold text-slate-600 hover:text-primary bg-white border border-slate-200 rounded-xl hover:border-primary transition"
         >
           <ArrowLeft size={16} /> Back to Reports
         </button>
-        {active === 'load-cell' ? <LoadCellReportPage /> : <LiveLoadPage />}
+        <FullPage />
       </div>
     );
   }
@@ -43,18 +70,27 @@ export default function ReportsPage() {
   return (
     <div>
       <PageHeader
-        crumbs={['Insights', 'Reports']}
+        crumbs={["Insights", "Reports"]}
         title="Reports & Analytics"
         description="Generate detailed operational reports and export them in one click."
-        actions={<><Button variant="secondary" icon={Calendar}>May 14 – 20</Button><Button icon={Download}>Export</Button></>}
       />
-      <ReportSummary summary={summary.data} loading={summary.isLoading} />
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
         <div className="lg:col-span-3">
-          <ReportTypeList types={allTypes} loading={types.isLoading} activeId={active} onSelect={setActive} />
+          <ReportTypeList
+            types={REPORT_TYPES}
+            loading={false}
+            activeId={active}
+            onSelect={setActive}
+          />
         </div>
         <div className="lg:col-span-9">
-          <ReportContent series={series.data ?? []} rows={rows.data ?? []} loading={series.isLoading || rows.isLoading} />
+          {active === "distance" && <DistanceReportPage />}
+          {active === "hourly" && <HourlyReportPage />}
+          {active !== "distance" && active !== "hourly" && (
+            <ComingSoon
+              name={REPORT_TYPES.find((r) => r.id === active)?.name ?? active}
+            />
+          )}
         </div>
       </div>
     </div>
