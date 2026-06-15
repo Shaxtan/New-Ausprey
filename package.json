@@ -16,6 +16,8 @@
     "clsx": "^2.1.1",
     "framer-motion": "^11.3.24",
     "leaflet": "^1.9.4",
+    "leaflet-geometryutil": "^0.10.3",
+    "leaflet-polylinedecorator": "^1.6.0",
     "leaflet.markercluster": "^1.5.3",
     "lucide-react": "^0.427.0",
     "react": "^18.3.1",

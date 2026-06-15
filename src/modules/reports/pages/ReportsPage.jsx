@@ -4,6 +4,7 @@ import { PageHeader } from "@/components/common";
 import { ReportTypeList } from "../components/ReportTypeList";
 import DistanceReportPage from "./DistanceReportPage";
 import HourlyReportPage from "./HourlyReportPage";
+import TrackPlayPage from "./TrackPlayPage";
 import LoadCellReportPage from "@/modules/devices/pages/LoadCellReportPage";
 import LiveLoadPage from "@/modules/devices/pages/LiveLoadPage";
 
@@ -18,7 +19,7 @@ const REPORT_TYPES = [
     name: "Working Hour Report",
     desc: "Session trips & account analytics",
   },
-  { id: "idle", name: "Idle Report", desc: "Idling time analysis" },
+  { id: "trackplay", name: "Track Play", desc: "Historical route playback" },
   { id: "speed", name: "Overspeed Report", desc: "Violations by vehicle" },
   { id: "stoppage", name: "Stoppage Report", desc: "Stop duration & location" },
   {
@@ -86,11 +87,14 @@ export default function ReportsPage() {
         <div className="lg:col-span-9">
           {active === "distance" && <DistanceReportPage />}
           {active === "hourly" && <HourlyReportPage />}
-          {active !== "distance" && active !== "hourly" && (
-            <ComingSoon
-              name={REPORT_TYPES.find((r) => r.id === active)?.name ?? active}
-            />
-          )}
+          {active === "trackplay" && <TrackPlayPage />}
+          {active !== "distance" &&
+            active !== "hourly" &&
+            active !== "trackplay" && (
+              <ComingSoon
+                name={REPORT_TYPES.find((r) => r.id === active)?.name ?? active}
+              />
+            )}
         </div>
       </div>
     </div>

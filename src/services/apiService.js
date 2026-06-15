@@ -298,21 +298,28 @@ class ApiService {
       return raw.map((item) => {
         const speed = Number(item.speed) || 0;
         const ign = (item.ign ?? "").toUpperCase();
-        let status = "IDLE";
-        if (speed === 0) status = "STOP";
-        else if (speed > 5 && ign === "Y") status = "MOTION";
+        // Speed is the reliable movement signal — some devices report ign="N"
+        // even while moving, so don't require ign==="Y" for MOTION.
+        let status;
+        if (speed > 5) status = "MOTION";
+        else if (speed > 0)
+          status = "IDLE"; // crawling / low speed
+        else if (ign === "Y")
+          status = "IDLE"; // engine on but not moving
+        else status = "STOP"; // speed 0 + ign off
         return {
           name: item.vehicleNumber || item.imei,
           lat: item.latitude,
           lng: item.longitude,
           ts: item.deviceTime,
           speed,
+          disha: item.disha != null ? Number(item.disha) : null,
+          ign,
           status,
         };
       });
     });
   }
-
   // ── Trips ─────────────────────────────────────────────────────────────────
 
   getActiveTrips(pageNo = 0) {

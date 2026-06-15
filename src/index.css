@@ -30,3 +30,11 @@
 
 /* Leaflet container baseline */
 .leaflet-container { font-family: inherit; }
+
+/* Track play truck marker — clean wrapper */
+.trackplay-truck {
+  background: none !important;
+  border: none !important;
+  box-shadow: none !important;
+  overflow: visible !important;
+}
