@@ -219,6 +219,62 @@ function VehicleSelect({ options, value, onChange, loading }) {
   );
 }
 
+// ─── Bottom info bar stat cells ───────────────────────────────────────────────
+function BottomStat({
+  icon: Icon,
+  label,
+  value,
+  iconColor = "text-slate-500",
+  wide,
+}) {
+  return (
+    <div
+      className={cn(
+        "flex flex-col items-center justify-center px-4 py-2.5 border-r border-slate-100 last:border-r-0",
+        wide ? "min-w-[150px]" : "min-w-[100px]",
+      )}
+    >
+      <div className={cn("mb-0.5", iconColor)}>
+        <Icon size={15} />
+      </div>
+      <div className="text-sm font-extrabold text-slate-900 leading-tight text-center whitespace-nowrap">
+        {value ?? "—"}
+      </div>
+      <div className="text-[11px] text-slate-500 font-semibold mt-0.5">
+        {label}
+      </div>
+    </div>
+  );
+}
+
+function BottomStatStatus({ status }) {
+  const sc = statusStyle(status);
+  const color =
+    status === "MOTION"
+      ? "text-emerald-500"
+      : status === "STOP"
+        ? "text-rose-500"
+        : status === "IDLE"
+          ? "text-amber-500"
+          : "text-slate-400";
+  return (
+    <div className="flex flex-col items-center justify-center px-4 py-2.5 border-r border-slate-100 min-w-[100px]">
+      <div className={cn("mb-0.5", color)}>
+        <Activity size={15} />
+      </div>
+      <span
+        className="inline-block px-2 py-0.5 rounded-full text-[11px] font-bold"
+        style={{ background: sc.bg, color: sc.text }}
+      >
+        {status}
+      </span>
+      <div className="text-[11px] text-slate-500 font-semibold mt-0.5">
+        Status
+      </div>
+    </div>
+  );
+}
+
 // ─── Main page ────────────────────────────────────────────────────────────────
 export default function TrackPlayPage() {
   const accid = useAccountStore((s) => s.selectedAccount?.id ?? 1);
@@ -478,8 +534,10 @@ export default function TrackPlayPage() {
 
     if (!animActive) {
       map.fitBounds(line.getBounds(), { padding: [50, 50] });
-      // Draw filtered status point markers
+      // Draw only STOP / IDLE markers — MOTION points cover the whole
+      // polyline (vehicle moves continuously) and hide the route line.
       filteredData.forEach((rec) => {
+        if (rec.status === "MOTION") return;
         const lat = Number(rec.lat),
           lng = Number(rec.lng);
         if (isNaN(lat) || isNaN(lng)) return;
@@ -889,136 +947,101 @@ export default function TrackPlayPage() {
         }}
       />
 
-      {/* ── Right info panel ── */}
+      {/* ── Bottom info bar (horizontal, like live tracking) ── */}
       {showHistory && filteredData.length > 0 && (
-        <div className="absolute top-4 right-4 w-72 max-h-[calc(100%-32px)] overflow-y-auto z-[1000] flex flex-col gap-2">
-          {/* Vehicle header */}
-          <div className="bg-white rounded-xl shadow-lg p-3 flex items-center gap-3">
-            <div className="w-9 h-9 rounded-full bg-gradient-to-br from-blue-600 to-blue-400 flex items-center justify-center shrink-0">
-              <Truck size={18} className="text-white" />
-            </div>
-            <div className="min-w-0">
-              <div className="text-xs font-bold text-slate-800 truncate">
+        <div
+          className="absolute bottom-0 right-0 z-[1000] bg-white/97 backdrop-blur border-t border-slate-200 shadow-lg transition-all duration-300"
+          style={{ left: panelOpen ? 300 : 0 }}
+        >
+          {/* Top strip: vehicle name + trip range + progress */}
+          <div className="flex items-center gap-3 px-4 py-1.5 border-b border-slate-100 flex-wrap">
+            <div className="flex items-center gap-2 shrink-0">
+              <div className="w-6 h-6 rounded-lg bg-gradient-to-br from-blue-600 to-blue-400 flex items-center justify-center">
+                <Truck size={12} className="text-white" />
+              </div>
+              <span className="text-sm font-extrabold text-slate-900">
                 {selectedVeh?.label ?? "—"}
-              </div>
-              <div className="text-[11px] text-slate-400">
-                {filteredData.length} points loaded
-              </div>
+              </span>
             </div>
-          </div>
 
-          {/* Trip summary */}
-          <div className="bg-white rounded-xl shadow-lg p-3">
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
-              Trip Summary
-            </p>
-            {[
-              [
-                "From",
-                fromDate ? new Date(fromDate).toLocaleString() : "—",
-                Clock,
-              ],
-              ["To", toDate ? new Date(toDate).toLocaleString() : "—", MapPin],
-              [
-                "Points",
-                `${filteredData.length} / ${vehicleData.length}`,
-                Activity,
-              ],
-            ].map(([label, value, Icon]) => (
-              <div
-                key={label}
-                className="flex justify-between items-center py-1 border-b border-slate-50 last:border-0"
-              >
-                <span className="flex items-center gap-1.5 text-[11px] text-slate-400">
-                  <Icon size={12} className="text-primary" /> {label}
-                </span>
-                <span className="text-[11px] font-bold text-slate-700">
-                  {value}
-                </span>
-              </div>
-            ))}
-          </div>
-
-          {/* Live playback */}
-          <div className="bg-white rounded-xl shadow-lg p-3">
-            <div className="flex items-center gap-2 mb-2">
+            <div className="flex items-center gap-1.5 text-xs text-slate-600">
               <span
                 className={cn(
                   "w-2 h-2 rounded-full",
                   playing ? "bg-emerald-500 animate-pulse" : "bg-slate-300",
                 )}
               />
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+              <span className="font-semibold">
                 {playing ? "Live Playback" : isPaused ? "Paused" : "Playback"}
               </span>
             </div>
 
-            <div className="grid grid-cols-2 gap-2 mb-2">
-              <div className="bg-slate-50 rounded-lg p-2">
-                <div className="text-[10px] text-slate-400">Speed</div>
-                <div className="text-base font-extrabold text-slate-800">
-                  {playInfo?.speed ?? vehicleData[0]?.speed ?? "—"}
-                  <span className="text-[10px] font-normal text-slate-400 ml-0.5">
-                    km/h
-                  </span>
-                </div>
-              </div>
-              <div className="bg-slate-50 rounded-lg p-2">
-                <div className="text-[10px] text-slate-400">Status</div>
-                {(() => {
-                  const st = playInfo?.status ?? vehicleData[0]?.status ?? "—";
-                  const sc = statusStyle(st);
-                  return (
-                    <span
-                      className="inline-block mt-1 px-2 py-0.5 rounded-full text-[10px] font-bold"
-                      style={{ background: sc.bg, color: sc.text }}
-                    >
-                      {st}
-                    </span>
-                  );
-                })()}
-              </div>
-            </div>
-
-            {[
-              ["Timestamp", playInfo?.ts ? fmtTs(playInfo.ts) : "—", Clock],
-              [
-                "Latitude",
-                playInfo?.lat ? (+playInfo.lat).toFixed(5) : "—",
-                MapPin,
-              ],
-              [
-                "Longitude",
-                playInfo?.lng ? (+playInfo.lng).toFixed(5) : "—",
-                MapPin,
-              ],
-            ].map(([label, value, Icon]) => (
-              <div
-                key={label}
-                className="flex justify-between items-center py-1 border-b border-slate-50 last:border-0"
-              >
-                <span className="flex items-center gap-1.5 text-[11px] text-slate-400">
-                  <Icon size={12} className="text-primary" /> {label}
-                </span>
-                <span className="text-[11px] font-bold text-slate-700">
-                  {value}
-                </span>
-              </div>
-            ))}
-
-            {/* Progress */}
-            <div className="mt-2">
-              <div className="flex justify-between text-[10px] text-slate-400 mb-1">
-                <span>Progress</span>
-                <span>{progressPct}%</span>
-              </div>
-              <div className="h-1.5 bg-slate-200 rounded-full overflow-hidden">
+            <div className="ml-auto flex items-center gap-2 shrink-0 min-w-[180px]">
+              <span className="text-[11px] text-slate-500 font-medium">
+                {progressPct}%
+              </span>
+              <div className="flex-1 h-1.5 bg-slate-200 rounded-full overflow-hidden min-w-[100px]">
                 <div
                   className="h-full bg-gradient-to-r from-blue-600 to-blue-400 rounded-full transition-all"
                   style={{ width: `${progressPct}%` }}
                 />
               </div>
+              <span className="text-[11px] text-slate-400">
+                {filteredData.length}/{vehicleData.length}
+              </span>
             </div>
+          </div>
+
+          {/* Stats row */}
+          <div className="flex items-stretch overflow-x-auto">
+            <BottomStat
+              icon={Gauge}
+              label="Speed"
+              value={`${playInfo?.speed ?? vehicleData[0]?.speed ?? 0} km/h`}
+              iconColor="text-blue-500"
+            />
+
+            <BottomStatStatus
+              status={playInfo?.status ?? vehicleData[0]?.status ?? "—"}
+            />
+
+            <BottomStat
+              icon={Clock}
+              label="Timestamp"
+              value={playInfo?.ts ? fmtTs(playInfo.ts) : "—"}
+              iconColor="text-slate-500"
+              wide
+            />
+
+            <BottomStat
+              icon={MapPin}
+              label="Latitude"
+              value={playInfo?.lat ? (+playInfo.lat).toFixed(5) : "—"}
+              iconColor="text-emerald-500"
+            />
+
+            <BottomStat
+              icon={MapPin}
+              label="Longitude"
+              value={playInfo?.lng ? (+playInfo.lng).toFixed(5) : "—"}
+              iconColor="text-emerald-500"
+            />
+
+            <BottomStat
+              icon={Clock}
+              label="From"
+              value={fromDate ? new Date(fromDate).toLocaleString() : "—"}
+              iconColor="text-slate-500"
+              wide
+            />
+
+            <BottomStat
+              icon={Clock}
+              label="To"
+              value={toDate ? new Date(toDate).toLocaleString() : "—"}
+              iconColor="text-slate-500"
+              wide
+            />
           </div>
         </div>
       )}
