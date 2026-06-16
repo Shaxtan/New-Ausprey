@@ -1,9 +1,12 @@
 import {
   LayoutDashboard, Navigation, MapPin, Truck, Route, Map, Bell,
-  BarChart3, LineChart, Radio, BarChart2, Activity,
+  BarChart3, LineChart, Radio,
   SlidersHorizontal, Users, Settings,
 } from 'lucide-react';
 import { PATHS } from './paths';
+
+// Empty 18px slot → item shows no icon but text stays aligned with the others
+const NoIcon = () => <span style={{ display: 'inline-block', width: 18 }} />;
 
 export const NAVIGATION = [
   { id: 'dashboard', label: 'Dashboard',       icon: LayoutDashboard, to: PATHS.DASHBOARD },
@@ -16,8 +19,8 @@ export const NAVIGATION = [
   { id: 'reports',   label: 'Reports',          icon: BarChart3,       to: PATHS.REPORTS   },
   { id: 'analytics', label: 'Analytics',        icon: LineChart,       to: PATHS.ANALYTICS },
   { id: 'devices',   label: 'IoT Sensors',      icon: Radio,           to: PATHS.DEVICES   },
-  { id: 'load-cell', label: 'Load Cell Report', icon: BarChart2,       to: PATHS.LOAD_CELL },
-  { id: 'live-load', label: 'Live Load Graph',  icon: Activity,        to: PATHS.LIVE_LOAD },
+  // { id: 'load-cell', label: 'Load Cell Report', icon: NoIcon,          to: PATHS.LOAD_CELL },
+  // { id: 'live-load', label: 'Live Load Graph',  icon: NoIcon,          to: PATHS.LIVE_LOAD },
   { id: 'divider-1', divider: true },
   {
     id: 'admin', label: 'Administration', icon: SlidersHorizontal, group: true,
