@@ -39,12 +39,17 @@ import { cn } from "@/utils";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 const pad = (n) => String(n).padStart(2, "0");
-const today = () => new Date().toISOString().split("T")[0];
+
+/** Formats a Date to yyyy-mm-dd using LOCAL date parts (no UTC shift) */
+const toLocalYmd = (d) =>
+  `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+
+const today = () => toLocalYmd(new Date());
 
 /** Formats a yyyy-mm-dd date to d/MM/yyyy for the API payload */
 const toApiDate = (dateStr) => {
-  const d = new Date(dateStr);
-  return `${d.getDate()}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`;
+  const [y, m, d] = dateStr.split("-");
+  return `${Number(d)}/${m}/${y}`;
 };
 
 const QUICK = [
@@ -57,22 +62,18 @@ function applyQuick(key, setStart, setEnd) {
   const now = new Date();
   let s = new Date(),
     e = new Date();
-  const fmt = (d) => d.toISOString().split("T")[0];
   if (key === "today") {
-    s.setHours(0, 0, 0, 0);
+    /* both = today */
   }
   if (key === "yesterday") {
     s.setDate(now.getDate() - 1);
-    s.setHours(0, 0, 0, 0);
     e.setDate(now.getDate() - 1);
-    e.setHours(23, 59, 59);
   }
   if (key === "last7") {
-    s.setDate(now.getDate() - 7);
-    s.setHours(0, 0, 0, 0);
+    s.setDate(now.getDate() - 7); /* end = today */
   }
-  setStart(fmt(s));
-  setEnd(fmt(e));
+  setStart(toLocalYmd(s));
+  setEnd(toLocalYmd(e));
 }
 
 // ─── IMEI searchable combobox ─────────────────────────────────────────────────
