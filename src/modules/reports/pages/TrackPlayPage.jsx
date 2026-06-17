@@ -292,6 +292,7 @@ export default function TrackPlayPage() {
     endMarker: null,
   });
   const pointMarkersRef = useRef([]);
+  const followRef = useRef(true); // mirror of `follow` for use inside rAF loop
 
   // State
   const [vehicleList, setVehicleList] = useState([]);
@@ -308,12 +309,18 @@ export default function TrackPlayPage() {
 
   const [statusFilter, setStatusFilter] = useState(["MOTION", "STOP", "IDLE"]);
   const [speed, setSpeed] = useState(1);
+  const [follow, setFollow] = useState(true); // follow-vehicle mode
   const [isPlaying, setIsPlaying] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
   const [panelOpen, setPanelOpen] = useState(true);
   const [listOpen, setListOpen] = useState(false);
   const [highlightIdx, setHighlightIdx] = useState(null);
   const [playInfo, setPlayInfo] = useState(null);
+
+  // Keep followRef in sync so the animation loop reads the latest value
+  useEffect(() => {
+    followRef.current = follow;
+  }, [follow]);
 
   // ── Load vehicle list ──
   useEffect(() => {
@@ -594,9 +601,11 @@ export default function TrackPlayPage() {
         m.setLatLng([lat, lng]);
         m.setIcon(truckIcon(toPt.status, bearing - ICON_OFFSET));
 
-        const bounds = map.getBounds().pad(-0.15);
-        if (!bounds.contains([lat, lng]))
-          map.panTo([lat, lng], { animate: true, duration: 0.4 });
+        // Follow the vehicle: keep it centered on every frame while follow mode is on.
+        // setView with animate:false avoids stacking animations (smooth + no jitter).
+        if (followRef.current) {
+          map.setView([lat, lng], map.getZoom(), { animate: false });
+        }
 
         setHighlightIdx(idx);
         setPlayInfo(toPt);
@@ -644,6 +653,14 @@ export default function TrackPlayPage() {
       }).addTo(layer);
     } else {
       markerRef.current.addTo(layer);
+    }
+
+    // When following, zoom in on the vehicle's current position so the
+    // continuous re-centering is meaningful (closer street-level view).
+    if (followRef.current) {
+      const p = points[startIdx];
+      const targetZoom = Math.max(map.getZoom(), 15);
+      map.setView([+p.lat, +p.lng], targetZoom, { animate: true });
     }
 
     const segDuration = Math.max(50, 600 / speed);
@@ -862,6 +879,27 @@ export default function TrackPlayPage() {
                   <span>2x</span>
                   <span>4x</span>
                 </div>
+              </div>
+
+              {/* Follow vehicle toggle */}
+              <div className="flex items-center justify-between mb-4">
+                <span className="text-xs font-bold text-slate-600">
+                  Follow Vehicle
+                </span>
+                <button
+                  onClick={() => setFollow((v) => !v)}
+                  className={cn(
+                    "relative w-10 h-[22px] rounded-full transition",
+                    follow ? "bg-primary" : "bg-slate-300",
+                  )}
+                >
+                  <span
+                    className={cn(
+                      "absolute top-0.5 w-[18px] h-[18px] rounded-full bg-white transition-all",
+                      follow ? "left-[20px]" : "left-0.5",
+                    )}
+                  />
+                </button>
               </div>
 
               {/* Play / Stop */}

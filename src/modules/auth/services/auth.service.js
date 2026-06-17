@@ -43,18 +43,43 @@ export const authService = {
     );
     localStorage.setItem("userDetails", JSON.stringify(tokenDetails));
 
-    // Also persist in the new key so apiClient interceptor picks it up
-    if (tokenDetails.token) {
-      localStorage.setItem("auspre-token", tokenDetails.token);
+    // The real API returns the JWT in `jwtToken` (older code used `token`)
+    const token = tokenDetails.jwtToken ?? tokenDetails.token ?? "";
+    if (token) {
+      localStorage.setItem("auspre-token", token);
     }
+
+    // Build a display name from the API fields.
+    // Response shape: { username, firstName, middleName, lastName, ... }
+    const fullName = [tokenDetails.firstName, tokenDetails.lastName]
+      .filter(Boolean)
+      .join(" ")
+      .trim();
+
+    const displayName =
+      fullName ||
+      tokenDetails.username ||
+      tokenDetails.userName ||
+      tokenDetails.email ||
+      identifier ||
+      "User";
+
+    const roleLabel =
+      (Array.isArray(tokenDetails.roles) && tokenDetails.roles.length
+        ? tokenDetails.roles[0].replace(/^ROLE_/, "") // ROLE_ADMIN → ADMIN
+        : null) ||
+      tokenDetails.roleId ||
+      tokenDetails.role ||
+      "Member";
 
     // Return a shape that useAuthStore.login({ user, token }) expects
     return {
-      token: tokenDetails.token ?? tokenDetails.jwtToken ?? "",
+      token,
       user: {
-        name: tokenDetails.name ?? tokenDetails.userName ?? "User",
-        email: tokenDetails.email ?? identifier,
-        role: tokenDetails.role ?? tokenDetails.userType ?? "Fleet Manager",
+        name: displayName,
+        email: tokenDetails.email || identifier,
+        role: roleLabel,
+        username: tokenDetails.username ?? identifier,
         accountId: tokenDetails.accountId ?? tokenDetails.accid ?? 1,
       },
     };
