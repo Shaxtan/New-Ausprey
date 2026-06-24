@@ -13,9 +13,11 @@ import {
   useDashboardData,
   useVehicleStatus,
   useUnreachableDevices,
+  useDashboardAlerts,
 } from "../hooks/useDashboard";
 import { FleetLiveStrip } from "../components/FleetLiveStrip";
 import { VehicleStatusCard } from "../components/VehicleStatusCard";
+import { AlertsPieCard } from "../components/AlertsPieCard";
 import { DailyMovementCard } from "../components/DailyMovementCard";
 import { TopSpeedingCard } from "../components/TopSpeedingCard";
 import { FleetTableCard } from "../components/FleetTableCard";
@@ -24,6 +26,7 @@ export default function DashboardPage() {
   const { data, isLoading } = useDashboardData();
   const statusQuery = useVehicleStatus();
   const unreachableQuery = useUnreachableDevices();
+  const alertsQuery = useDashboardAlerts();
 
   const summary = data?.summary ?? null;
   const live = summary?.live ?? null;
@@ -82,7 +85,7 @@ export default function DashboardPage() {
         }
       />
 
-      <FleetLiveStrip data={live} loading={isLoading} />
+      {/* <FleetLiveStrip data={live} loading={isLoading} /> */}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-4 mb-5">
         {kpis.map((k, i) => (
@@ -99,7 +102,11 @@ export default function DashboardPage() {
           />
         </div>
         <div className="lg:col-span-4">
-          <DailyMovementCard data={[]} loading={isLoading} />
+          <AlertsPieCard
+            summary={alertsQuery.data?.summary ?? []}
+            alerts={alertsQuery.data?.data ?? []}
+            loading={alertsQuery.isLoading}
+          />
         </div>
         <div className="lg:col-span-4">
           <TopSpeedingCard data={[]} loading={isLoading} />
