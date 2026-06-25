@@ -1,52 +1,11 @@
 import { create } from "zustand";
 
-// Build a display name from a raw userDetails object (real API shape)
-const deriveUser = (d) => {
-  if (!d) return null;
-  const fullName = [d.firstName, d.lastName].filter(Boolean).join(" ").trim();
-  const name =
-    fullName || d.username || d.userName || d.name || d.email || "User";
-  const role =
-    (Array.isArray(d.roles) && d.roles.length
-      ? d.roles[0].replace(/^ROLE_/, "")
-      : null) ||
-    d.roleId ||
-    d.role ||
-    "Member";
-  return {
-    name,
-    email: d.email || "",
-    role,
-    username: d.username ?? "",
-    accountId: d.accountId ?? d.accid ?? 1,
-  };
-};
-
 const load = () => {
-  // Prefer the new auth key
   try {
-    const auth = JSON.parse(localStorage.getItem("auspre-auth") || "{}");
-    if (auth.user) return auth;
+    return JSON.parse(localStorage.getItem("auspre-auth") || "{}");
   } catch {
-    /* noop */
+    return {};
   }
-
-  // Fall back to the raw userDetails saved at login (re-derive a clean user)
-  try {
-    const details = JSON.parse(localStorage.getItem("userDetails") || "null");
-    const token =
-      localStorage.getItem("auspre-token") ||
-      details?.jwtToken ||
-      details?.token ||
-      null;
-    if (details) {
-      return { user: deriveUser(details), token, isAuthenticated: !!token };
-    }
-  } catch {
-    /* noop */
-  }
-
-  return {};
 };
 
 const stored = load();

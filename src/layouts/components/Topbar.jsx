@@ -270,6 +270,8 @@ function UserMenu() {
   const navigate = useNavigate();
   const user = useAuthStore((s) => s.user);
   const logout = useAuthStore((s) => s.logout);
+  const resetAccounts = useAccountStore((s) => s.reset);
+  const qc = useQueryClient();
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
 
@@ -345,6 +347,8 @@ function UserMenu() {
                 onClick={() => {
                   setOpen(false);
                   logout();
+                  resetAccounts(); // clear stale account list + selection
+                  qc.clear(); // drop all account-scoped cached queries
                   navigate(PATHS.LOGIN, { replace: true });
                 }}
                 className="w-full flex items-center gap-3 px-3 py-2.5 text-sm font-semibold text-rose-600 rounded-lg hover:bg-rose-50 transition"
