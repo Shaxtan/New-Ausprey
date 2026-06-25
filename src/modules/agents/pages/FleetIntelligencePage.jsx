@@ -7,7 +7,7 @@
  *   - Per-agent stat cards
  *   - A filterable, searchable findings table
  */
-import { useMemo, useState } from "react";
+import { useMemo, useState, useRef } from "react";
 import {
   ShieldCheck,
   AlertTriangle,
@@ -18,9 +18,12 @@ import {
   Search,
   RefreshCw,
   ChevronRight,
+  X,
 } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { PageHeader } from "@/components/common";
 import { Card, Skeleton, Spinner } from "@/components/ui";
+import { PATHS } from "@/constants";
 import { cn } from "@/utils";
 import { useFleetScan } from "../hooks/useFleetScan";
 
@@ -61,9 +64,14 @@ function StatTile({
   color = "#2563eb",
   bg = "#eff6ff",
   loading,
+  onClick,
 }) {
   return (
-    <Card>
+    <Card
+      hover={!!onClick}
+      className={onClick ? "cursor-pointer" : ""}
+      onClick={onClick}
+    >
       <div className="flex items-center gap-3">
         <div
           className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0"
@@ -110,7 +118,7 @@ function ScoreRing({ score }) {
         fill="none"
         stroke={col}
         strokeWidth="7"
-        strokelinecap="round"
+        strokeLinecap="round"
         strokeDasharray={c}
         strokeDashoffset={off}
         transform="rotate(-90 34 34)"
@@ -130,17 +138,44 @@ function ScoreRing({ score }) {
 
 export default function FleetIntelligencePage() {
   const { scan, isLoading, isFetching, refetch } = useFleetScan();
+  const navigate = useNavigate();
   const [sevFilter, setSevFilter] = useState("all");
   const [agentFilter, setAgentFilter] = useState("all");
+  const [codeFilter, setCodeFilter] = useState("all");
   const [search, setSearch] = useState("");
+  const findingsRef = useRef(null);
 
   const findings = scan?.findings ?? [];
+
+  // Scroll to the findings table after a card click
+  const scrollToFindings = () => {
+    requestAnimationFrame(() =>
+      findingsRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      }),
+    );
+  };
+
+  // Apply a filter set from a card click, then scroll down to the table
+  const focusFindings = ({
+    severity = "all",
+    agent = "all",
+    code = "all",
+  } = {}) => {
+    setSevFilter(severity);
+    setAgentFilter(agent);
+    setCodeFilter(code);
+    setSearch("");
+    scrollToFindings();
+  };
 
   const filtered = useMemo(() => {
     const term = search.toLowerCase();
     return findings.filter((f) => {
       if (sevFilter !== "all" && f.severity !== sevFilter) return false;
       if (agentFilter !== "all" && f.agent !== agentFilter) return false;
+      if (codeFilter !== "all" && f.code !== codeFilter) return false;
       if (
         term &&
         !(
@@ -153,9 +188,20 @@ export default function FleetIntelligencePage() {
         return false;
       return true;
     });
-  }, [findings, sevFilter, agentFilter, search]);
+  }, [findings, sevFilter, agentFilter, codeFilter, search]);
 
   const sum = scan?.summary;
+  const hasActiveFilter =
+    sevFilter !== "all" ||
+    agentFilter !== "all" ||
+    codeFilter !== "all" ||
+    search !== "";
+  const clearFilters = () => {
+    setSevFilter("all");
+    setAgentFilter("all");
+    setCodeFilter("all");
+    setSearch("");
+  };
 
   return (
     <div className="pb-10">
@@ -182,7 +228,11 @@ export default function FleetIntelligencePage() {
 
       {/* Summary KPIs */}
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 mb-5">
-        <Card>
+        <Card
+          hover
+          className="cursor-pointer"
+          onClick={() => focusFindings({ agent: "data-quality" })}
+        >
           <div className="flex items-center gap-3">
             {isLoading ? (
               <Skeleton className="h-16 w-16 rounded-full" />
@@ -206,6 +256,7 @@ export default function FleetIntelligencePage() {
           color="#e11d48"
           bg="#fff1f2"
           loading={isLoading}
+          onClick={() => focusFindings({ severity: "critical" })}
         />
         <StatTile
           icon={Activity}
@@ -214,6 +265,7 @@ export default function FleetIntelligencePage() {
           color="#f59e0b"
           bg="#fffbeb"
           loading={isLoading}
+          onClick={() => focusFindings({ severity: "warning" })}
         />
         <StatTile
           icon={ShieldCheck}
@@ -222,6 +274,7 @@ export default function FleetIntelligencePage() {
           color="#2563eb"
           bg="#eff6ff"
           loading={isLoading}
+          onClick={() => focusFindings({})}
         />
       </div>
 
@@ -229,21 +282,34 @@ export default function FleetIntelligencePage() {
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-5">
         <AgentCard
           agentKey="data-quality"
-          scan={scan}
           loading={isLoading}
+          onAgentClick={() => focusFindings({ agent: "data-quality" })}
           stats={
             scan && [
-              ["Corrupt timestamps", scan.quality.stats.corruptTimestamp],
-              ["Ignition mismatches", scan.quality.stats.ignContradiction],
-              ["Invalid coords", scan.quality.stats.invalidCoords],
-              ["Duplicates", scan.quality.stats.duplicates],
+              [
+                "Corrupt timestamps",
+                scan.quality.stats.corruptTimestamp,
+                "CORRUPT_TIMESTAMP",
+              ],
+              [
+                "Ignition mismatches",
+                scan.quality.stats.ignContradiction,
+                "IGN_CONTRADICTION",
+              ],
+              [
+                "Invalid coords",
+                scan.quality.stats.invalidCoords,
+                "INVALID_COORDS",
+              ],
+              ["Duplicates", scan.quality.stats.duplicates, "DUPLICATE"],
             ]
           }
+          onStatClick={(code) => focusFindings({ agent: "data-quality", code })}
         />
         <AgentCard
           agentKey="device-health"
-          scan={scan}
           loading={isLoading}
+          onAgentClick={() => focusFindings({ agent: "device-health" })}
           stats={
             scan && [
               ["Healthy", scan.health.stats.healthy],
@@ -251,11 +317,12 @@ export default function FleetIntelligencePage() {
               ["Critical", scan.health.stats.critical],
             ]
           }
+          onStatClick={() => focusFindings({ agent: "device-health" })}
         />
         <AgentCard
           agentKey="alert-priority"
-          scan={scan}
           loading={isLoading}
+          onAgentClick={() => focusFindings({ agent: "alert-priority" })}
           stats={
             scan && [
               ["Raw alerts", scan.priority.stats.rawAlerts],
@@ -267,18 +334,39 @@ export default function FleetIntelligencePage() {
               ],
             ]
           }
+          onStatClick={() => focusFindings({ agent: "alert-priority" })}
         />
       </div>
 
       {/* Findings table */}
-      <Card>
+      <Card ref={findingsRef}>
         <div className="flex items-center justify-between mb-4 gap-3 flex-wrap">
-          <h3 className="text-sm font-bold text-slate-800">
-            Findings{" "}
-            <span className="text-slate-400 font-normal">
-              ({filtered.length})
-            </span>
-          </h3>
+          <div className="flex items-center gap-2 flex-wrap">
+            <h3 className="text-sm font-bold text-slate-800">
+              Findings{" "}
+              <span className="text-slate-400 font-normal">
+                ({filtered.length})
+              </span>
+            </h3>
+            {agentFilter !== "all" && (
+              <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full bg-primary/10 text-primary">
+                {AGENT_META[agentFilter]?.label ?? agentFilter}
+              </span>
+            )}
+            {codeFilter !== "all" && (
+              <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">
+                {codeFilter.replace(/_/g, " ").toLowerCase()}
+              </span>
+            )}
+            {hasActiveFilter && (
+              <button
+                onClick={clearFilters}
+                className="inline-flex items-center gap-1 text-[11px] font-semibold text-slate-400 hover:text-rose-500 transition"
+              >
+                <X size={12} /> clear
+              </button>
+            )}
+          </div>
           <div className="flex items-center gap-2 flex-wrap">
             {/* Severity filter */}
             <div className="flex gap-1">
@@ -352,10 +440,31 @@ export default function FleetIntelligencePage() {
                     icon: Activity,
                   };
                   const AgIcon = ag.icon;
+                  const canOpen = !!f.imei;
+                  const openVehicle = () => {
+                    if (!f.imei) return;
+                    navigate(PATHS.TRACKING, {
+                      state: {
+                        targetImei: f.imei,
+                        targetAccountId: f.accId ?? undefined,
+                      },
+                    });
+                  };
                   return (
                     <tr
                       key={f.id}
-                      className="hover:bg-slate-50 transition align-top"
+                      onClick={canOpen ? openVehicle : undefined}
+                      className={cn(
+                        "transition align-top",
+                        canOpen
+                          ? "hover:bg-primary/5 cursor-pointer"
+                          : "hover:bg-slate-50",
+                      )}
+                      title={
+                        canOpen
+                          ? `Open ${f.vehnum ?? f.imei} in live tracking`
+                          : undefined
+                      }
                     >
                       <td className="px-3 py-2.5 whitespace-nowrap">
                         <span
@@ -400,16 +509,26 @@ export default function FleetIntelligencePage() {
                         )}
                       </td>
                       <td className="px-3 py-2.5 whitespace-nowrap">
-                        {f.value && (
-                          <span className="font-mono text-slate-600">
-                            {f.value}
-                          </span>
-                        )}
-                        {f.expected && (
-                          <div className="text-[10px] text-slate-400">
-                            exp: {f.expected}
+                        <div className="flex items-center gap-2">
+                          <div>
+                            {f.value && (
+                              <span className="font-mono text-slate-600">
+                                {f.value}
+                              </span>
+                            )}
+                            {f.expected && (
+                              <div className="text-[10px] text-slate-400">
+                                exp: {f.expected}
+                              </div>
+                            )}
                           </div>
-                        )}
+                          {canOpen && (
+                            <ChevronRight
+                              size={14}
+                              className="text-slate-300 ml-auto"
+                            />
+                          )}
+                        </div>
                       </td>
                     </tr>
                   );
@@ -424,32 +543,40 @@ export default function FleetIntelligencePage() {
 }
 
 // ─── Per-agent summary card ───────────────────────────────────────────────────
-function AgentCard({ agentKey, stats, loading }) {
+function AgentCard({ agentKey, stats, loading, onAgentClick, onStatClick }) {
   const meta = AGENT_META[agentKey];
   const Icon = meta.icon;
   return (
-    <Card hover>
+    <Card hover className="cursor-pointer" onClick={onAgentClick}>
       <div className="flex items-center gap-2 mb-3">
         <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center">
           <Icon size={17} className="text-primary" />
         </div>
-        <div>
+        <div className="flex-1">
           <div className="text-sm font-bold text-slate-800">{meta.label}</div>
           <div className="text-[10px] text-slate-400">Agent #{meta.num}</div>
         </div>
+        <ChevronRight size={16} className="text-slate-300" />
       </div>
       {loading || !stats ? (
         <Skeleton className="h-20 w-full" />
       ) : (
-        <div className="space-y-1.5">
-          {stats.map(([label, value]) => (
-            <div
+        <div className="space-y-1">
+          {stats.map(([label, value, code]) => (
+            <button
               key={label}
-              className="flex items-center justify-between text-xs"
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                (onStatClick ?? onAgentClick)?.(code);
+              }}
+              className="w-full flex items-center justify-between text-xs px-2 py-1 -mx-2 rounded-lg hover:bg-slate-50 transition group"
             >
-              <span className="text-slate-500">{label}</span>
+              <span className="text-slate-500 group-hover:text-primary transition">
+                {label}
+              </span>
               <span className="font-bold text-slate-800">{value}</span>
-            </div>
+            </button>
           ))}
         </div>
       )}
