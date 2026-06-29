@@ -293,30 +293,46 @@ function DeviceListPanel({
               return (
                 <button
                   key={v.id}
+                  ref={
+                    isAct
+                      ? (el) => el?.scrollIntoView({ block: "nearest" })
+                      : null
+                  }
                   onClick={() => onSelect(v)}
                   className={cn(
-                    "w-full text-left px-3 py-2.5 border-b border-slate-50 transition flex items-center gap-2.5",
+                    "w-full text-left px-3 py-2.5 border-b transition flex items-center gap-2.5",
                     isAct
-                      ? "bg-primary/5 border-l-2 border-l-primary"
-                      : "hover:bg-slate-50",
+                      ? "bg-primary border-b-primary/20 border-l-[3px] border-l-primary"
+                      : "border-b-slate-50 border-l-[3px] border-l-transparent hover:bg-slate-50",
                   )}
                 >
                   <span
                     className={cn("w-2 h-2 rounded-full shrink-0", meta.bg)}
                   />
                   <div className="flex-1 min-w-0">
-                    <div className="text-xs font-bold text-slate-800 truncate">
+                    <div
+                      className={cn(
+                        "text-xs font-bold truncate",
+                        isAct ? "text-white" : "text-slate-800",
+                      )}
+                    >
                       {v.name ?? v.id}
                     </div>
-                    <div className="text-[11px] text-slate-400 truncate">
+                    <div
+                      className={cn(
+                        "text-[11px] truncate",
+                        isAct ? "text-blue-200" : "text-slate-400",
+                      )}
+                    >
                       {v.lastUpdate ?? "—"}
                     </div>
                   </div>
                   <span
                     className={cn(
                       "text-[10px] font-semibold px-1.5 py-0.5 rounded-full shrink-0",
-                      meta.light,
-                      meta.text,
+                      isAct
+                        ? "bg-white/20 text-white"
+                        : cn(meta.light, meta.text),
                     )}
                   >
                     {meta.label}
