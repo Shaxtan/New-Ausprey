@@ -21,6 +21,8 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Avatar } from "@/components/ui";
 import { PATHS } from "@/constants/paths";
 import { cn } from "@/utils";
+import { useDashboardAlerts } from "@/modules/dashboard/hooks/useDashboard";
+import { AlertsModal } from "@/modules/dashboard/components/AlertsModal";
 
 // ─── Dashboard refresh control ────────────────────────────────────────────────
 const REFRESH_MS = 5 * 60 * 1000; // 5 minutes
@@ -265,6 +267,40 @@ function AccountSelector() {
   );
 }
 
+// ─── Notification Bell — opens the db-alerts list ─────────────────────────────
+function NotificationBell() {
+  const { data, isLoading } = useDashboardAlerts();
+  const [open, setOpen] = useState(false);
+
+  const alerts = data?.data ?? [];
+  const total = alerts.length;
+  const badge = total > 99 ? "99+" : total;
+
+  return (
+    <>
+      <button
+        onClick={() => setOpen(true)}
+        className="relative w-9 h-9 flex items-center justify-center rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition"
+        title="View alerts"
+      >
+        <Bell size={18} />
+        {!isLoading && total > 0 && (
+          <span className="absolute top-1 right-1 min-w-4 h-4 px-1 text-[9px] font-bold text-white rounded-full flex items-center justify-center bg-rose-500">
+            {badge}
+          </span>
+        )}
+      </button>
+      {open && (
+        <AlertsModal
+          type="ALL"
+          alerts={alerts}
+          onClose={() => setOpen(false)}
+        />
+      )}
+    </>
+  );
+}
+
 // ─── User Menu ────────────────────────────────────────────────────────────────
 function UserMenu() {
   const navigate = useNavigate();
@@ -426,12 +462,7 @@ export function Topbar() {
         </button>
 
         {/* Notifications */}
-        <button className="relative w-9 h-9 flex items-center justify-center rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition">
-          <Bell size={18} />
-          <span className="absolute top-1.5 right-1.5 w-4 h-4 text-[9px] font-bold text-white rounded-full flex items-center justify-center bg-rose-500">
-            12
-          </span>
-        </button>
+        <NotificationBell />
 
         {/* User menu */}
         <UserMenu />
