@@ -76,8 +76,8 @@ export default function DashboardPage() {
     <div>
       <PageHeader
         crumbs={["Home", "Dashboard"]}
-        title="Dashboard Overview"
-        description="Real-time visibility across your entire fleet."
+        // title="Dashboard Overview"
+        // description="Real-time visibility across your entire fleet."
         actions={
           <div className="flex items-center gap-2">
             <button className="hidden sm:inline-flex items-center gap-2 text-sm font-semibold text-slate-600 bg-white border border-slate-200 px-3.5 py-2 rounded-lg hover:bg-slate-50 transition">
