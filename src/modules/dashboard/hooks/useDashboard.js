@@ -13,6 +13,74 @@ import apiService from "@/services/apiService";
 const KEY = "dashboard";
 const REFRESH_MS = 5 * 60 * 1000; // 5 minutes
 
+const pad = (n) => String(n).padStart(2, "0");
+const toLocalYmd = (d) =>
+  `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+/** yyyy-mm-dd → d/MM/yyyy (matches the API payload format) */
+const toApiDate = (s) => {
+  const [y, m, d] = s.split("-");
+  return `${Number(d)}/${m}/${y}`;
+};
+
+/**
+ * Top sub-accounts by total distance for today — used by the dashboard chart.
+ * Uses getAccountSummaryReport which returns childAccounts[] with totalDistance.
+ */
+export const useTopDistanceDevices = (topN = 5) => {
+  const accid = useAccountStore((s) => s.selectedAccount?.id);
+  return useQuery({
+    queryKey: [KEY, "top-distance", accid],
+    enabled: accid != null,
+    staleTime: REFRESH_MS,
+    refetchInterval: REFRESH_MS,
+    queryFn: async () => {
+      const today = new Date();
+      const yesterday = new Date();
+      yesterday.setDate(today.getDate() - 1);
+
+      const startDate = toApiDate(toLocalYmd(yesterday));
+      const endDate = toApiDate(toLocalYmd(today));
+
+      const res = await apiService.getAccountSummaryReport(
+        startDate,
+        endDate,
+        accid ?? 1,
+      );
+      const body = res?.data;
+      if (body?.resultCode !== 1) return [];
+
+      // Recursively collect all accounts that have actual fleet data.
+      // The tree can be arbitrarily deep (Ausprey → Tech-Hop → sub-accounts).
+      // We want the deepest nodes with distance > 0 — i.e. real fleet accounts,
+      // not intermediate aggregation nodes.
+      const collectLeaves = (node) => {
+        if (!node) return [];
+        const children = node.childAccounts ?? [];
+        if (children.length === 0) {
+          // Leaf node — return itself if it has distance data
+          return Number(node.totalDistance ?? 0) > 0 ? [node] : [];
+        }
+        // Internal node — recurse into children
+        return children.flatMap(collectLeaves);
+      };
+
+      const root = Array.isArray(body.data) ? body.data[0] : null;
+      const list = collectLeaves(root);
+
+      return [...list]
+        .filter((a) => Number(a.totalDistance ?? 0) > 0)
+        .sort((a, b) => Number(b.totalDistance) - Number(a.totalDistance))
+        .slice(0, topN)
+        .map((a) => ({
+          name: a.accountName,
+          value: Number(a.totalDistance ?? 0),
+          devices: Number(a.deviceCount ?? 0),
+          accountId: a.accountId,
+        }));
+    },
+  });
+};
+
 /** Alerts (summary + full list) from /alerts/db-alerts. Auto-refreshes every 5 min. */
 export const useDashboardAlerts = () => {
   const accid = useAccountStore((s) => s.selectedAccount?.id);
