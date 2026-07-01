@@ -2,8 +2,9 @@
  * TrackingPage.jsx — New-Ausprey
  *
  * Mirrors the old Ausprey LiveTrack page:
- *  - Left panel: searchable device list with status filter chips
- *  - Right: Leaflet map with live truck marker, route polyline, info overlay
+ *  - Left panel: searchable device list — FLOATS over the map on the left
+ *  - Full-screen Leaflet map (zero side gaps, minimal top header)
+ *  - Live truck marker, route polyline, info overlay
  *  - Polls `getLiveTrack` every 30 s for the selected vehicle
  *  - Smooth marker animation between GPS fixes (like old project)
  *  - Route accumulation (last 100 points)
@@ -37,7 +38,6 @@ import {
   RotateCcw,
 } from "lucide-react";
 
-import { PageHeader } from "@/components/common";
 import { Card, Skeleton } from "@/components/ui";
 import { cn } from "@/utils";
 import { useAccountStore } from "@/store";
@@ -216,8 +216,7 @@ function FlyTo({ position }) {
   return null;
 }
 
-// ─── Left panel — device list ─────────────────────────────────────────────────
-
+// ─── Left panel — device list (floats over the map) ──────────────────────────
 function DeviceListPanel({
   vehicles,
   loading,
@@ -235,12 +234,14 @@ function DeviceListPanel({
     );
   }, [vehicles, search]);
 
+  // Collapsed: show only the expand button
   if (collapsed) {
     return (
-      <div className="flex flex-col items-center pt-4 gap-2">
+      <div className="flex flex-col items-center pt-3">
         <button
           onClick={onToggle}
-          className="p-2 rounded-lg bg-slate-100 hover:bg-slate-200 transition"
+          className="p-2 rounded-lg bg-white shadow-lg border border-slate-200 hover:bg-slate-50 transition"
+          title="Expand sidebar"
         >
           <ChevronRight size={18} className="text-slate-600" />
         </button>
@@ -249,22 +250,24 @@ function DeviceListPanel({
   }
 
   return (
-    <Card className="flex flex-col h-full p-0 overflow-hidden">
+    <Card className="flex flex-col h-full p-0 overflow-hidden shadow-2xl">
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100 bg-slate-800 rounded-t-2xl">
+      <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100 bg-slate-800 rounded-t-2xl shrink-0">
         <span className="text-sm font-bold text-white">
           Live Devices ({filtered.length})
         </span>
+        {/* ChevronLeft = collapse toward the left edge */}
         <button
           onClick={onToggle}
           className="text-slate-300 hover:text-white transition"
+          title="Collapse sidebar"
         >
           <ChevronLeft size={18} />
         </button>
       </div>
 
       {/* Search */}
-      <div className="px-3 py-2 border-b border-slate-100">
+      <div className="px-3 py-2 border-b border-slate-100 shrink-0">
         <div className="relative">
           <Search
             size={13}
@@ -380,7 +383,6 @@ function LiveInfoOverlay({ vehicle, liveData }) {
   const address = d.address ?? "—";
   const vehName = d.vehnum ?? vehicle.name ?? "—";
 
-  // Status dot colour
   const statusColor =
     status === "Running"
       ? "text-emerald-500"
@@ -490,7 +492,7 @@ export default function TrackingPage() {
   const [route, setRoute] = useState([]);
   const [animPos, setAnimPos] = useState(null);
   const [bearing, setBearing] = useState(0);
-  const [flyTarget, setFlyTarget] = useState(null); // real GPS destination — triggers FlyTo once per fix
+  const [flyTarget, setFlyTarget] = useState(null);
   const animFrameRef = useRef(null);
   const prevPosRef = useRef(null);
   const liveIntervalRef = useRef(null);
@@ -554,7 +556,7 @@ export default function TrackingPage() {
       setLiveData(d);
       const newPos = [parseFloat(d.lat), parseFloat(d.lng)];
       if (!isNaN(newPos[0]) && !isNaN(newPos[1])) {
-        setFlyTarget(newPos); // pan map to real GPS destination once
+        setFlyTarget(newPos);
         setRoute((prev) => {
           const prevPos = prev.length ? prev[prev.length - 1] : null;
           animateTo(prevPos, newPos, 28_000);
@@ -604,14 +606,12 @@ export default function TrackingPage() {
     return null;
   }, [animPos, route, selectedVehicle]);
 
-  // mapCenter is only used for the initial MapContainer render — never changes after mount
   const mapCenter = useMemo(() => {
     if (selectedVehicle?.lat) return [selectedVehicle.lat, selectedVehicle.lng];
     return [22.2587, 71.1924];
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedId]); // only recalc when device changes, not on every GPS fix
+  }, [selectedId]);
 
-  // All vehicle markers (fleet overview dots)
   const allMarkers = useMemo(
     () =>
       vehicles
@@ -633,46 +633,31 @@ export default function TrackingPage() {
     "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png";
 
   return (
-    <div>
-      <PageHeader
-        crumbs={["Home", "Live Tracking"]}
-        title="Live Tracking"
-        description="Real-time vehicle tracking with GPS telemetry."
-        actions={
-          <button
-            onClick={fetchLive}
-            className="inline-flex items-center gap-2 text-sm font-semibold text-slate-600 bg-white border border-slate-200 px-3.5 py-2 rounded-lg hover:bg-slate-50 transition"
-          >
-            <RotateCcw size={14} /> Refresh
-          </button>
-        }
-      />
-
-      <div className="flex gap-4 h-[calc(100vh-180px)] min-h-[560px]">
-        {/* ── Left panel ── */}
-        <div
-          className={cn(
-            "transition-all duration-300 shrink-0",
-            collapsed ? "w-10" : "w-72",
-          )}
+    <div className="flex flex-col h-[calc(100vh-64px)]">
+      {/* ── Minimal header strip ── */}
+      <div className="px-4 py-1.5 shrink-0 flex items-center justify-between border-b border-slate-100 bg-white">
+        <nav className="flex items-center gap-1.5 text-xs text-slate-400">
+          <span>Home</span>
+          <span className="text-slate-300">›</span>
+          <span className="font-semibold text-slate-700">Live Tracking</span>
+        </nav>
+        <button
+          onClick={fetchLive}
+          className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-600 bg-white border border-slate-200 px-3 py-1.5 rounded-lg hover:bg-slate-50 transition"
         >
-          <DeviceListPanel
-            vehicles={vehicles}
-            loading={isLoading}
-            selectedId={selectedId}
-            onSelect={(v) => setSelectedId(v.id)}
-            collapsed={collapsed}
-            onToggle={() => setCollapsed((c) => !c)}
-          />
-        </div>
+          <RotateCcw size={12} /> Refresh
+        </button>
+      </div>
 
-        {/* ── Map ── */}
-        <div className="flex-1 relative rounded-2xl overflow-hidden shadow-card border border-slate-100">
+      {/* ── Full-screen map area — sidebar floats over it ── */}
+      <div className="relative flex-1 min-h-0">
+        {/* Map — true edge-to-edge, no padding */}
+        <div className="absolute inset-0 overflow-hidden">
           <MapContainer
             center={mapCenter}
             zoom={13}
             scrollWheelZoom
-            style={{ height: "100%", width: "100%", paddingBottom: "96px" }}
+            style={{ height: "100%", width: "100%" }}
           >
             <MapFixer />
             <TileLayer
@@ -680,10 +665,8 @@ export default function TrackingPage() {
               attribution="© OpenStreetMap contributors"
             />
 
-            {/* Fly to real GPS destination only — not animation frames */}
             {flyTarget && <FlyTo position={flyTarget} />}
 
-            {/* Route polyline */}
             {route.length > 1 && (
               <Polyline
                 positions={route}
@@ -693,7 +676,6 @@ export default function TrackingPage() {
               />
             )}
 
-            {/* All fleet vehicles as small coloured pin dots */}
             {allMarkers
               .filter((m) => m.id !== selectedId)
               .map((m) => (
@@ -712,7 +694,6 @@ export default function TrackingPage() {
                 </Marker>
               ))}
 
-            {/* Selected vehicle — stable truck marker, rotation via DOM mutation */}
             {selectedVehicle && (
               <TruckMarker
                 position={renderedPos}
@@ -723,7 +704,7 @@ export default function TrackingPage() {
             )}
           </MapContainer>
 
-          {/* Info overlay */}
+          {/* Live info overlay — anchored to the map bottom */}
           <LiveInfoOverlay vehicle={selectedVehicle} liveData={liveData} />
 
           {/* No vehicle selected prompt */}
@@ -737,6 +718,23 @@ export default function TrackingPage() {
               </div>
             </div>
           )}
+        </div>
+
+        {/* ── Floating LEFT sidebar — overlays the map ── */}
+        <div
+          className={cn(
+            "absolute left-3 top-3 bottom-3 z-[1001] transition-all duration-300",
+            collapsed ? "w-10" : "w-72",
+          )}
+        >
+          <DeviceListPanel
+            vehicles={vehicles}
+            loading={isLoading}
+            selectedId={selectedId}
+            onSelect={(v) => setSelectedId(v.id)}
+            collapsed={collapsed}
+            onToggle={() => setCollapsed((c) => !c)}
+          />
         </div>
       </div>
     </div>

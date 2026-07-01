@@ -8,11 +8,11 @@ export function Logo({ compact = false }) {
       {!compact && (
         <div className="leading-none">
           <div className="text-[19px] font-extrabold tracking-tight">
-            <span style={{ color: '#d29a4a' }}>au</span>
+            {/* <span style={{ color: '#d29a4a' }}>au</span>
             <span style={{ color: '#e0533a' }}>s</span>
-            <span style={{ color: '#e9eef6' }}>pre</span>
+            <span style={{ color: '#e9eef6' }}>pre</span> */}
           </div>
-          <div className="text-[7.5px] font-semibold tracking-[0.28em] mt-1 text-sidebar-muted">IGNITING POSSIBILITIES</div>
+          {/* <div className="text-[7.5px] font-semibold tracking-[0.28em] mt-1 text-sidebar-muted">IGNITING POSSIBILITIES</div> */}
         </div>
       )}
     </div>

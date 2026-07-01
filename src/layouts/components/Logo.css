@@ -1,0 +1,37 @@
+.eyeoty-logo {
+    width: 100% !important;
+    display: flex !important;
+    justify-content: center !important;
+    align-items: center !important;
+    overflow: hidden !important;
+}
+
+.eyeoty-logo--expanded {
+    padding: 10px 0 8px !important;
+}
+
+.eyeoty-logo--compact {
+    padding: 8px 0 !important;
+}
+
+.eyeoty-logo__image {
+    display: block !important;
+    width: auto !important;
+    max-width: 100% !important;
+    height: auto !important;
+    object-fit: contain !important;
+    margin: 0 auto !important;
+    transition: 0.3s ease !important;
+}
+
+.eyeoty-logo__image--expanded {
+    width: 150px !important;
+    max-width: 150px !important;
+    height: auto !important;
+}
+
+.eyeoty-logo__image--compact {
+    width: 52px !important;
+    max-width: 52px !important;
+    height: auto !important;
+}

@@ -3,7 +3,8 @@
  *
  * Full-page Leaflet map with:
  *  - MarkerCluster for all fleet vehicles
- *  - Right sidebar: search + status filter chips + vehicle list
+ *  - Floating LEFT sidebar: search + status filter chips + vehicle list
+ *  - Sidebar overlays the map; toggle collapses/expands from the left
  *  - Clicking a vehicle flies to its marker and opens popup
  *  - Fetches from POST /usage/reports/report/mapview?accid=<id>
  *  - Auto-refreshes every 3 minutes
@@ -35,9 +36,7 @@ import {
   ChevronLeft,
   ChevronRight,
   RotateCcw,
-  Car,
 } from "lucide-react";
-import { PageHeader } from "@/components/common";
 import { Skeleton } from "@/components/ui";
 import { cn } from "@/utils";
 import { useAccountStore } from "@/store";
@@ -116,7 +115,7 @@ function buildMarkerIcon(status, highlighted = false) {
   });
 }
 
-// ─── Sidebar ──────────────────────────────────────────────────────────────────
+// ─── Sidebar (floats over the map on the left) ────────────────────────────────
 const FILTERS = ["All", "Motion", "Idle", "Stop", "Lock"];
 
 function Sidebar({
@@ -152,31 +151,36 @@ function Sidebar({
       });
   }, [vehicles, filter, search]);
 
+  // ── Collapsed: just a slim toggle tab on the left edge ──
   if (collapsed) {
     return (
       <div className="flex flex-col items-center pt-3">
+        {/* Toggle button — ChevronRight means "expand to the right" */}
         <button
           onClick={onToggle}
-          className="p-2 rounded-lg bg-white shadow border border-slate-200 hover:bg-slate-50 transition"
+          className="p-2 rounded-lg bg-white shadow-lg border border-slate-200 hover:bg-slate-50 transition"
+          title="Expand sidebar"
         >
-          <ChevronLeft size={18} className="text-slate-600" />
+          <ChevronRight size={18} className="text-slate-600" />
         </button>
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col h-full bg-white rounded-2xl shadow-xl border border-slate-100 overflow-hidden">
+    <div className="flex flex-col h-full bg-white rounded-2xl shadow-2xl border border-slate-100 overflow-hidden">
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 bg-slate-800 shrink-0">
         <span className="text-sm font-bold text-white">
           Vehicle Status {loading ? "" : `(${counts.All})`}
         </span>
+        {/* ChevronLeft means "collapse to the left" */}
         <button
           onClick={onToggle}
           className="text-slate-300 hover:text-white transition"
+          title="Collapse sidebar"
         >
-          <ChevronRight size={18} />
+          <ChevronLeft size={18} />
         </button>
       </div>
 
@@ -247,12 +251,8 @@ function Sidebar({
                       : "hover:bg-slate-50 hover:translate-x-1",
                 )}
               >
-                {/* Status icon bubble */}
-                <div
-                  className={cn(
-                    "absolute right-3 top-1/2 -translate-y-1/2 w-6 h-6 rounded-full flex items-center justify-center bg-white shadow-sm border border-slate-100",
-                  )}
-                >
+                {/* Status dot bubble */}
+                <div className="absolute right-3 top-1/2 -translate-y-1/2 w-6 h-6 rounded-full flex items-center justify-center bg-white shadow-sm border border-slate-100">
                   <span className={cn("w-2 h-2 rounded-full", meta.dot)} />
                 </div>
                 <div className="text-xs font-bold text-slate-800 pr-8">
@@ -306,13 +306,11 @@ export default function MapPage() {
     });
     mapRef.current = map;
 
-    // Tile layer
     L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
       maxZoom: 19,
       attribution: "© OpenStreetMap contributors",
     }).addTo(map);
 
-    // Marker cluster
     const cluster = L.markerClusterGroup({
       spiderfyOnMaxZoom: true,
       showCoverageOnHover: false,
@@ -396,7 +394,6 @@ export default function MapPage() {
     }
   }, [accid]);
 
-  // Fetch on mount + accid change + every 3 min
   useEffect(() => {
     fetchMapData();
     if (timerRef.current) clearInterval(timerRef.current);
@@ -410,17 +407,14 @@ export default function MapPage() {
       const entry = markerMapRef.current[v.vehnum];
       if (!entry || !mapRef.current) return;
 
-      // Reset previous highlight
       if (highlighted && markerMapRef.current[highlighted]) {
         const prev = markerMapRef.current[highlighted];
         prev.marker.setIcon(buildMarkerIcon(prev.status, false));
       }
 
-      // Highlight new
       entry.marker.setIcon(buildMarkerIcon(entry.status, true));
       setHighlighted(v.vehnum);
 
-      // Ensure cluster is expanded then fly
       clusterRef.current.zoomToShowLayer(entry.marker, () => {
         mapRef.current.flyTo(entry.marker.getLatLng(), 15, {
           animate: true,
@@ -429,33 +423,35 @@ export default function MapPage() {
         entry.marker.openPopup();
       });
 
-      setCollapsed(true); // collapse sidebar to give map more room
+      // Collapse sidebar on vehicle click to reveal more of the map
+      setCollapsed(true);
     },
     [highlighted],
   );
 
   return (
     <div className="flex flex-col h-[calc(100vh-64px)]">
-      <div className="px-6 pt-4 pb-2 shrink-0">
-        <PageHeader
-          crumbs={["Home", "Map View"]}
-          title="Map View"
-          description="Live fleet positions with vehicle clustering."
-          actions={
-            <button
-              onClick={fetchMapData}
-              className="inline-flex items-center gap-2 text-sm font-semibold text-slate-600 bg-white border border-slate-200 px-3.5 py-2 rounded-lg hover:bg-slate-50 transition"
-            >
-              <RotateCcw size={14} /> Refresh
-            </button>
-          }
-        />
+      {/* Minimal header strip — tight padding, no wasted vertical space */}
+      <div className="px-4 py-1.5 shrink-0 flex items-center justify-between border-b border-slate-100 bg-white">
+        {/* Breadcrumb */}
+        <nav className="flex items-center gap-1.5 text-xs text-slate-400">
+          <span>Home</span>
+          <span className="text-slate-300">›</span>
+          <span className="text-primary font-semibold text-slate-700">Map View</span>
+        </nav>
+        {/* Refresh */}
+        <button
+          onClick={fetchMapData}
+          className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-600 bg-white border border-slate-200 px-3 py-1.5 rounded-lg hover:bg-slate-50 transition"
+        >
+          <RotateCcw size={12} /> Refresh
+        </button>
       </div>
 
-      {/* Map + sidebar */}
-      <div className="flex flex-1 gap-3 px-6 pb-4 min-h-0">
-        {/* Map */}
-        <div className="flex-1 relative rounded-2xl overflow-hidden border border-slate-200 shadow-lg">
+      {/* Map fills ALL remaining space — zero padding, true edge-to-edge */}
+      <div className="relative flex-1 min-h-0">
+        {/* Map — absolute fill, no horizontal gap */}
+        <div className="absolute inset-0 overflow-hidden">
           <div
             ref={mapContainerRef}
             style={{ height: "100%", width: "100%" }}
@@ -469,10 +465,10 @@ export default function MapPage() {
           )}
         </div>
 
-        {/* Sidebar */}
+        {/* Floating sidebar — overlays the map on the LEFT with a small inset */}
         <div
           className={cn(
-            "shrink-0 transition-all duration-300",
+            "absolute left-3 top-3 bottom-3 z-[1001] transition-all duration-300",
             collapsed ? "w-10" : "w-80",
           )}
         >
