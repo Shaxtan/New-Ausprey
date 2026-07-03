@@ -5,6 +5,7 @@ import DistanceReportPage from "./DistanceReportPage";
 import HourlyReportPage from "./HourlyReportPage";
 import TrackPlayPage from "./TrackPlayPage";
 import StoppageReportPage from "./StoppageReportPage";
+import OverspeedReportPage from "./OverspeedReportPage";
 import LoadCellReportPage from "@/modules/devices/pages/LoadCellReportPage";
 import LiveLoadPage from "@/modules/devices/pages/LiveLoadPage";
 
@@ -34,11 +35,11 @@ const REPORT_TYPES = [
   },
 ];
 
-// Every report that has a real page goes here → opens as a full-page view
 const FULL_PAGES = {
   distance: DistanceReportPage,
   hourly: HourlyReportPage,
   trackplay: TrackPlayPage,
+  speed: OverspeedReportPage,
   stoppage: StoppageReportPage,
   "load-cell": LoadCellReportPage,
   "live-load": LiveLoadPage,

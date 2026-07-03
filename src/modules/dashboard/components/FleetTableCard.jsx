@@ -22,6 +22,7 @@ import { useNavigate } from "react-router-dom";
 import { Card, Tabs, Skeleton } from "@/components/ui";
 import { cn, exportCSV, exportExcel, exportPDF } from "@/utils";
 import { ExportMenu } from "@/components/common";
+import { VehicleDrawer } from "./VehicleDrawer";
 import apiService from "@/services/apiService";
 import { useAccountStore } from "@/store";
 
@@ -270,7 +271,7 @@ function FilterBar({ active, counts, onChange }) {
 }
 
 // ─── VTS table ────────────────────────────────────────────────────────────────
-function VtsTable({ rows, loading, onImeiClick, onAccountClick }) {
+function VtsTable({ rows, loading, onImeiClick, onAccountClick, onRowClick }) {
   if (loading)
     return (
       <div className="space-y-2 p-4">
@@ -317,26 +318,28 @@ function VtsTable({ rows, loading, onImeiClick, onAccountClick }) {
         </thead>
         <tbody className="divide-y divide-slate-50">
           {rows.map((r, i) => (
-            <tr key={r.imei ?? i} className="hover:bg-slate-50/70 transition">
+            <tr
+              key={r.imei ?? i}
+              className="hover:bg-primary/5 transition cursor-pointer"
+              onClick={() => onRowClick?.(r)}
+              title={`View details for ${r.vehnum || r.name || r.imei}`}
+            >
               <td className="px-3 py-2.5 text-xs text-slate-400 font-medium">
                 {i + 1}
               </td>
-              <td className="px-3 py-2.5 whitespace-nowrap relative">
+              <td
+                className="px-3 py-2.5 whitespace-nowrap relative"
+                onClick={(e) => e.stopPropagation()}
+              >
                 <AccountNameCell name={r.accountName} onOpen={onAccountClick} />
               </td>
               <td className="px-3 py-2.5">
-                <button
-                  onClick={() => onImeiClick(r.imei, r.accid)}
-                  className="text-xs font-bold text-primary hover:underline whitespace-nowrap"
-                >
+                <button className="text-xs font-bold text-primary hover:underline whitespace-nowrap">
                   {r.vehnum || r.name || "—"}
                 </button>
               </td>
               <td className="px-3 py-2.5">
-                <button
-                  onClick={() => onImeiClick(r.imei, r.accid)}
-                  className="text-xs text-primary hover:underline font-mono"
-                >
+                <button className="text-xs text-primary hover:underline font-mono">
                   {r.imei}
                 </button>
               </td>
@@ -518,6 +521,15 @@ export function FleetTableCard({
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const PAGE_SIZE = 20;
+
+  // Vehicle detail drawer
+  const [drawerVehicle, setDrawerVehicle] = useState(null);
+
+  // Single click → open drawer; IMEI text still navigates to tracking
+  const handleVehicleClick = (row) => {
+    if (!row?.imei || row.imei === "N/A") return;
+    setDrawerVehicle(row);
+  };
 
   const handleImeiClick = (imei, accid) => {
     if (!imei || imei === "N/A") return;
@@ -755,6 +767,7 @@ export function FleetTableCard({
             loading={loadingVts}
             onImeiClick={handleImeiClick}
             onAccountClick={openAccountPopup}
+            onRowClick={handleVehicleClick}
           />
         ) : (
           <UnreachableTable
@@ -765,6 +778,14 @@ export function FleetTableCard({
           />
         )}
       </div>
+
+      {/* Vehicle detail drawer */}
+      {drawerVehicle && (
+        <VehicleDrawer
+          vehicle={drawerVehicle}
+          onClose={() => setDrawerVehicle(null)}
+        />
+      )}
 
       {/* Account status popup */}
       {popup && (

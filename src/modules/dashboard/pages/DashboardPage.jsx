@@ -87,7 +87,7 @@ export default function DashboardPage() {
         }
       />
 
-      <FleetLiveStrip data={live} loading={isLoading} />
+      {/* <FleetLiveStrip data={live} loading={isLoading} /> */}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-4 mb-5">
         {kpis.map((k, i) => (
