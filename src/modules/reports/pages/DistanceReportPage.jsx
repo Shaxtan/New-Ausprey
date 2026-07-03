@@ -33,6 +33,8 @@ import {
 } from "lucide-react";
 import { PageHeader } from "@/components/common";
 import { Card, Skeleton, Spinner } from "@/components/ui";
+import { ExportMenu } from "@/components/common";
+import { exportCSV, exportExcel, exportPDF } from "@/utils";
 import { useAccountStore } from "@/store";
 import apiService from "@/services/apiService";
 import { cn } from "@/utils";
@@ -360,6 +362,53 @@ export default function DistanceReportPage() {
 
   const firstRow = reportData?.vehicleDistances?.[0];
 
+  // ── Export helpers ──────────────────────────────────────────────────────────
+  const exportRows = useMemo(() => {
+    const label = isSingleDay ? "Hour" : "Date";
+    return chartData.map((r) => ({
+      [label]: isSingleDay ? `${r.hr}:00` : r.repDate,
+      "Vehicle No": firstRow?.vehNum ?? "",
+      IMEI: reportData?.imei ?? imei ?? "",
+      "Distance (km)": r.distance ?? 0,
+      "Speed (km/h)": r.speed ?? 0,
+    }));
+  }, [chartData, isSingleDay, firstRow, reportData, imei]);
+
+  const exportCols = useMemo(
+    () => [
+      {
+        key: isSingleDay ? "Hour" : "Date",
+        label: isSingleDay ? "Hour" : "Date",
+        width: 12,
+      },
+      { key: "Vehicle No", label: "Vehicle No", width: 18 },
+      { key: "IMEI", label: "IMEI", width: 20 },
+      { key: "Distance (km)", label: "Distance (km)", width: 14 },
+      { key: "Speed (km/h)", label: "Speed (km/h)", width: 14 },
+    ],
+    [isSingleDay],
+  );
+
+  const exportMeta = {
+    title: `Distance Report — ${firstRow?.vehNum ?? imei}`,
+    subtitle:
+      committed.start === committed.end
+        ? committed.start
+        : `${committed.start} → ${committed.end}`,
+  };
+
+  const handleExportCSV = () =>
+    exportCSV(exportRows, `distance_report_${imei}.csv`, exportCols);
+  const handleExportExcel = () =>
+    exportExcel(
+      exportRows,
+      `distance_report_${imei}.xlsx`,
+      exportCols,
+      "Distance Report",
+    );
+  const handleExportPDF = () =>
+    exportPDF(exportRows, `distance_report_${imei}`, exportCols, exportMeta);
+
   const summaryCards = [
     {
       icon: Truck,
@@ -398,19 +447,27 @@ export default function DistanceReportPage() {
         title="Distance Report"
         description="Daily or hourly distance travelled and average speed per vehicle."
         actions={
-          <button
-            onClick={fetchReport}
-            disabled={loading || !imei}
-            className={cn(
-              "inline-flex items-center gap-2 text-sm font-semibold px-4 py-2 rounded-xl border transition",
-              loading || !imei
-                ? "text-slate-300 border-slate-100 bg-slate-50 cursor-not-allowed"
-                : "text-slate-600 border-slate-200 bg-white hover:bg-slate-50 hover:border-primary/40",
-            )}
-          >
-            <RefreshCw size={14} className={cn(loading && "animate-spin")} />
-            {loading ? "Loading…" : "Refresh"}
-          </button>
+          <div className="flex items-center gap-2">
+            <ExportMenu
+              disabled={!reportData || chartData.length === 0}
+              onCSV={handleExportCSV}
+              onExcel={handleExportExcel}
+              onPDF={handleExportPDF}
+            />
+            <button
+              onClick={fetchReport}
+              disabled={loading || !imei}
+              className={cn(
+                "inline-flex items-center gap-2 text-sm font-semibold px-4 py-2 rounded-xl border transition",
+                loading || !imei
+                  ? "text-slate-300 border-slate-100 bg-slate-50 cursor-not-allowed"
+                  : "text-slate-600 border-slate-200 bg-white hover:bg-slate-50 hover:border-primary/40",
+              )}
+            >
+              <RefreshCw size={14} className={cn(loading && "animate-spin")} />
+              {loading ? "Loading…" : "Refresh"}
+            </button>
+          </div>
         }
       />
 

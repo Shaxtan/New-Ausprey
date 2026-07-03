@@ -20,7 +20,8 @@ import {
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Card, Tabs, Skeleton } from "@/components/ui";
-import { cn } from "@/utils";
+import { cn, exportCSV, exportExcel, exportPDF } from "@/utils";
+import { ExportMenu } from "@/components/common";
 import apiService from "@/services/apiService";
 import { useAccountStore } from "@/store";
 
@@ -580,6 +581,102 @@ export function FleetTableCard({
 
   const resetPage = () => setPage(1);
 
+  // ── Export ──────────────────────────────────────────────────────────────────
+  const VTS_COLS = [
+    { key: "no", label: "No", width: 6 },
+    { key: "accountName", label: "Account", width: 22 },
+    { key: "vehnum", label: "Vehicle No.", width: 16 },
+    { key: "imei", label: "IMEI", width: 20 },
+    { key: "power", label: "Power", width: 14 },
+    { key: "dateTime", label: "Date/Time", width: 22 },
+    { key: "address", label: "Address", width: 36 },
+    { key: "lat", label: "Lat", width: 14 },
+    { key: "lng", label: "Lng", width: 14 },
+    { key: "gps", label: "GPS", width: 10 },
+    { key: "ignition", label: "Ignition", width: 10 },
+    { key: "speed", label: "Speed (km/h)", width: 14 },
+    { key: "status", label: "Status", width: 12 },
+  ];
+
+  const UNREACHABLE_COLS = [
+    { key: "no", label: "No", width: 6 },
+    { key: "accountName", label: "Account", width: 22 },
+    { key: "accid", label: "Acc ID", width: 10 },
+    { key: "vehnum", label: "Vehicle No.", width: 16 },
+    { key: "imei", label: "IMEI", width: 20 },
+    { key: "deviceType", label: "Device Type", width: 14 },
+    { key: "createdOn", label: "Created On", width: 22 },
+  ];
+
+  const vtsExportRows = useMemo(
+    () =>
+      filteredVts.map((r, i) => ({
+        no: i + 1,
+        accountName: r.accountName ?? "—",
+        vehnum: r.vehnum || r.name || "—",
+        imei: r.imei ?? "—",
+        power: r.powsts === "Y" ? "Connected" : "Disconnected",
+        dateTime: r.devTs || r.cts || "—",
+        address: r.address && r.address !== "NA" ? r.address : "—",
+        lat: r.lat?.toFixed(5) ?? "—",
+        lng: r.lng?.toFixed(5) ?? "—",
+        gps: r.gps === "A" ? "Active" : "Inactive",
+        ignition: r.ign === "Y" ? "On" : "Off",
+        speed: `${Number(r.speed ?? 0).toFixed(1)} km/h`,
+        status: STATUS_META[r._status]?.label ?? r._status ?? "—",
+      })),
+    [filteredVts],
+  );
+
+  const unreachableExportRows = useMemo(
+    () =>
+      filteredUnreachable.map((r, i) => ({
+        no: i + 1,
+        accountName: r.accountName ?? "—",
+        accid: r.accid ?? "—",
+        vehnum: r.vehnum || r.name || "—",
+        imei: r.imei ?? "—",
+        deviceType: r.deviceType ?? "—",
+        createdOn: r.createdOn ? new Date(r.createdOn).toLocaleString() : "—",
+      })),
+    [filteredUnreachable],
+  );
+
+  const stamp = () => new Date().toISOString().slice(0, 10);
+
+  const activeExportRows =
+    tab === "vts" ? vtsExportRows : unreachableExportRows;
+  const activeExportCols = tab === "vts" ? VTS_COLS : UNREACHABLE_COLS;
+  const activeExportLabel =
+    tab === "vts" ? "live_vehicles" : "unreachable_devices";
+  const exportMetaTitle =
+    tab === "vts" ? "Live Vehicles" : "Unreachable Devices";
+  const exportMetaSub =
+    tab === "vts"
+      ? `${filteredVts.length} vehicles${vtsFilter !== "all" ? ` · ${vtsFilter}` : ""}${search ? ` · "${search}"` : ""}`
+      : `${filteredUnreachable.length} devices${search ? ` · "${search}"` : ""}`;
+
+  const handleExportCSV = () =>
+    exportCSV(
+      activeExportRows,
+      `${activeExportLabel}_${stamp()}.csv`,
+      activeExportCols,
+    );
+  const handleExportExcel = () =>
+    exportExcel(
+      activeExportRows,
+      `${activeExportLabel}_${stamp()}.xlsx`,
+      activeExportCols,
+      exportMetaTitle,
+    );
+  const handleExportPDF = () =>
+    exportPDF(
+      activeExportRows,
+      `${activeExportLabel}_${stamp()}`,
+      activeExportCols,
+      { title: exportMetaTitle, subtitle: exportMetaSub },
+    );
+
   const TABS = [
     { value: "vts", label: `Live Vehicles (${vtsCounts.all})` },
     { value: "unreachable", label: `Unreachable (${unreachableData.length})` },
@@ -615,6 +712,12 @@ export function FleetTableCard({
               className="pl-8 pr-3 py-1.5 text-xs rounded-lg border border-slate-200 bg-white focus:outline-none focus:border-primary w-48"
             />
           </div>
+          <ExportMenu
+            disabled={activeExportRows.length === 0}
+            onCSV={handleExportCSV}
+            onExcel={handleExportExcel}
+            onPDF={handleExportPDF}
+          />
         </div>
       </div>
 

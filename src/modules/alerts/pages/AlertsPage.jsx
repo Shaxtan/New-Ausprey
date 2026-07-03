@@ -14,7 +14,9 @@ import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { Search, Bell, MapPin, Clock, Battery } from "lucide-react";
 import { PageHeader } from "@/components/common";
+import { ExportMenu } from "@/components/common";
 import { Card, Skeleton, Spinner } from "@/components/ui";
+import { exportCSV, exportExcel, exportPDF } from "@/utils";
 import apiService from "@/services/apiService";
 import { useAccountStore } from "@/store";
 import { cn } from "@/utils";
@@ -152,6 +154,56 @@ export default function AlertsPage() {
       (a, b) => new Date(b.createdOn) - new Date(a.createdOn),
     );
   }, [alerts, imeiFilter]);
+
+  // ── Export ─────────────────────────────────────────────────────────────────
+  const ALERT_EXPORT_COLS = [
+    { key: "no", label: "No", width: 6 },
+    { key: "vehicleNo", label: "Vehicle No", width: 16 },
+    { key: "imei", label: "IMEI", width: 20 },
+    { key: "type", label: "Alert Type", width: 14 },
+    { key: "time", label: "Time", width: 20 },
+    { key: "speed", label: "Speed (km/h)", width: 14 },
+    { key: "battery", label: "Battery (V)", width: 14 },
+    { key: "address", label: "Address", width: 40 },
+    { key: "message", label: "Message", width: 40 },
+  ];
+
+  const exportRows = useMemo(
+    () =>
+      filtered.map((a, i) => ({
+        no: i + 1,
+        vehicleNo: a.vehicleNumber || "N/A",
+        imei: a.imei || "",
+        type: typeLabel(a.type) || a.type || "General Alert",
+        time: fmtDate(a.deviceTime || a.createdOn),
+        speed: a.speed ?? "",
+        battery: a.battery ?? "",
+        address: a.address || "",
+        message: a.message || "",
+      })),
+    [filtered],
+  );
+
+  const selectedAccount = accounts.find(
+    (a) => String(a.id) === String(accountId),
+  );
+  const exportMeta = {
+    title: "Alert Logs",
+    subtitle: `${selectedAccount?.label ?? ""} · ${fromDate ? fmtDate(fromDate.replace("T", " ") + ":00") : ""} → ${toDate ? fmtDate(toDate.replace("T", " ") + ":00") : ""}`,
+  };
+
+  const stamp = () => new Date().toISOString().slice(0, 10);
+  const handleExportCSV = () =>
+    exportCSV(exportRows, `alerts_${stamp()}.csv`, ALERT_EXPORT_COLS);
+  const handleExportExcel = () =>
+    exportExcel(
+      exportRows,
+      `alerts_${stamp()}.xlsx`,
+      ALERT_EXPORT_COLS,
+      "Alerts",
+    );
+  const handleExportPDF = () =>
+    exportPDF(exportRows, `alerts_${stamp()}`, ALERT_EXPORT_COLS, exportMeta);
 
   return (
     <div className="pb-10">
@@ -293,6 +345,12 @@ export default function AlertsPage() {
               ({filtered.length})
             </span>
           </h3>
+          <ExportMenu
+            disabled={filtered.length === 0}
+            onCSV={handleExportCSV}
+            onExcel={handleExportExcel}
+            onPDF={handleExportPDF}
+          />
         </div>
 
         {loading ? (

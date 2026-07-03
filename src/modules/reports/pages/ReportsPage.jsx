@@ -4,17 +4,34 @@ import { PageHeader } from "@/components/common";
 import DistanceReportPage from "./DistanceReportPage";
 import HourlyReportPage from "./HourlyReportPage";
 import TrackPlayPage from "./TrackPlayPage";
+import StoppageReportPage from "./StoppageReportPage";
 import LoadCellReportPage from "@/modules/devices/pages/LoadCellReportPage";
 import LiveLoadPage from "@/modules/devices/pages/LiveLoadPage";
 
 const REPORT_TYPES = [
-  { id: "distance",  name: "Distance Report",     desc: "Daily distance per vehicle" },
-  { id: "hourly",    name: "Working Hour Report", desc: "Session trips & account analytics" },
-  { id: "trackplay", name: "Track Play",          desc: "Historical route playback" },
-  { id: "speed",     name: "Overspeed Report",    desc: "Violations by vehicle" },
-  { id: "stoppage",  name: "Stoppage Report",     desc: "Stop duration & location" },
-  { id: "load-cell", name: "Load Cell Report",    desc: "Sensor load data & averages" },
-  { id: "live-load", name: "Live Load Graph",     desc: "Real-time load monitoring" },
+  {
+    id: "distance",
+    name: "Distance Report",
+    desc: "Daily distance per vehicle",
+  },
+  {
+    id: "hourly",
+    name: "Working Hour Report",
+    desc: "Session trips & account analytics",
+  },
+  { id: "trackplay", name: "Track Play", desc: "Historical route playback" },
+  { id: "speed", name: "Overspeed Report", desc: "Violations by vehicle" },
+  { id: "stoppage", name: "Stoppage Report", desc: "Stop duration & location" },
+  {
+    id: "load-cell",
+    name: "Load Cell Report",
+    desc: "Sensor load data & averages",
+  },
+  {
+    id: "live-load",
+    name: "Live Load Graph",
+    desc: "Real-time load monitoring",
+  },
 ];
 
 // Every report that has a real page goes here → opens as a full-page view
@@ -22,6 +39,7 @@ const FULL_PAGES = {
   distance: DistanceReportPage,
   hourly: HourlyReportPage,
   trackplay: TrackPlayPage,
+  stoppage: StoppageReportPage,
   "load-cell": LoadCellReportPage,
   "live-load": LiveLoadPage,
 };
@@ -51,9 +69,13 @@ export default function ReportsPage() {
         >
           <ArrowLeft size={16} /> Back to Reports
         </button>
-        {FullPage
-          ? <FullPage />
-          : <ComingSoon name={REPORT_TYPES.find((r) => r.id === active)?.name ?? active} />}
+        {FullPage ? (
+          <FullPage />
+        ) : (
+          <ComingSoon
+            name={REPORT_TYPES.find((r) => r.id === active)?.name ?? active}
+          />
+        )}
       </div>
     );
   }
@@ -74,13 +96,21 @@ export default function ReportsPage() {
             className="group flex items-center gap-4 p-5 rounded-2xl border border-slate-200 bg-white text-left hover:border-primary hover:shadow-card transition"
           >
             <span className="w-12 h-12 rounded-xl bg-slate-100 group-hover:bg-blue-100 flex items-center justify-center shrink-0 transition">
-              <FileBarChart size={20} className="text-slate-500 group-hover:text-primary transition" />
+              <FileBarChart
+                size={20}
+                className="text-slate-500 group-hover:text-primary transition"
+              />
             </span>
             <div className="flex-1 min-w-0">
-              <div className="text-sm font-bold text-slate-800 group-hover:text-primary transition">{r.name}</div>
+              <div className="text-sm font-bold text-slate-800 group-hover:text-primary transition">
+                {r.name}
+              </div>
               <div className="text-xs text-slate-400 mt-0.5">{r.desc}</div>
             </div>
-            <ChevronRight size={18} className="text-slate-300 group-hover:text-primary group-hover:translate-x-0.5 transition shrink-0" />
+            <ChevronRight
+              size={18}
+              className="text-slate-300 group-hover:text-primary group-hover:translate-x-0.5 transition shrink-0"
+            />
           </button>
         ))}
       </div>
