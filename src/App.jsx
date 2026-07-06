@@ -23,7 +23,7 @@ function GuestRoute({ children }) {
   return children;
 }
 
-const LoginPage = lazy(() => import("@/modules/auth/pages/LoginPage"));
+const LandingPage = lazy(() => import("@/modules/auth/pages/LandingPage"));
 const SignupPage = lazy(() => import("@/modules/auth/pages/SignupPage"));
 const DashboardPage = lazy(() => import("@/modules/dashboard"));
 const FleetIntelPage = lazy(() => import("@/modules/agents"));
@@ -51,7 +51,7 @@ export default function App() {
           path={PATHS.LOGIN}
           element={
             <GuestRoute>
-              <LoginPage />
+              <LandingPage />
             </GuestRoute>
           }
         />
