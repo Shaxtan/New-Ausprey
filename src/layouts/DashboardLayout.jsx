@@ -5,15 +5,16 @@ import { Sidebar } from "./components/Sidebar";
 import { Topbar } from "./components/Topbar";
 import { PageLoader } from "@/components/ui";
 import { useAccountStore } from "@/store";
+import { FleetChatWidget } from "@/modules/chat/FleetChatWidget";
 
 export function DashboardLayout() {
   const location = useLocation();
   const loadAccounts = useAccountStore((s) => s.loadAccounts);
 
-  // Load account list from API once when the dashboard mounts
   useEffect(() => {
     loadAccounts();
   }, [loadAccounts]);
+
   return (
     <div className="min-h-screen flex bg-slate-50">
       <Sidebar />
@@ -35,6 +36,8 @@ export function DashboardLayout() {
           </Suspense>
         </main>
       </div>
+      {/* Fleet Chat Assistant — floats over all dashboard pages */}
+      <FleetChatWidget />
     </div>
   );
 }
