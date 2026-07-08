@@ -6,6 +6,7 @@ import { Topbar } from "./components/Topbar";
 import { PageLoader } from "@/components/ui";
 import { useAccountStore } from "@/store";
 import { FleetChatWidget } from "@/modules/chat/FleetChatWidget";
+import { ActionExecutor } from "@/modules/chat/ActionExecutor";
 
 export function DashboardLayout() {
   const location = useLocation();
@@ -38,6 +39,8 @@ export function DashboardLayout() {
       </div>
       {/* Fleet Chat Assistant — floats over all dashboard pages */}
       <FleetChatWidget />
+      {/* Executes actions dispatched by the chat assistant */}
+      <ActionExecutor />
     </div>
   );
 }

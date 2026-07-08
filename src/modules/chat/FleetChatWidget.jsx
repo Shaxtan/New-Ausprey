@@ -101,7 +101,18 @@ function inlineFormat(text) {
 }
 
 // ─── Single message bubble ────────────────────────────────────────────────────
-function MessageBubble({ role, content, streaming }) {
+const ACTION_LABELS = {
+  NAVIGATE: (a) => `↗ Navigating to ${a.to}`,
+  TRACK_VEHICLE: (a) => `📍 Opening tracking for ${a.imei}`,
+  OPEN_VEHICLE_DRAWER: (a) => `🚛 Opening vehicle details`,
+  OPEN_REPORT: (a) => `📊 Opening ${a.report} report`,
+  FILTER_FLEET_TABLE: (a) =>
+    `🔍 Filtering table: ${a.filter ?? "all"}${a.search ? ` · "${a.search}"` : ""}`,
+  OPEN_ALERTS: () => `🔔 Opening alerts`,
+  OPEN_TRACK_PLAY: (a) => `▶ Opening track play`,
+};
+
+function MessageBubble({ role, content, action, streaming }) {
   const isUser = role === "user";
   return (
     <div
@@ -132,7 +143,18 @@ function MessageBubble({ role, content, streaming }) {
         {isUser ? (
           <p>{content}</p>
         ) : content ? (
-          <div className="space-y-0.5">{renderMarkdown(content)}</div>
+          <>
+            <div className="space-y-0.5">{renderMarkdown(content)}</div>
+            {action?.type && (
+              <div
+                className="mt-2 inline-flex items-center gap-1.5 px-2 py-1 rounded-lg
+                              bg-primary/8 text-primary text-[11px] font-semibold"
+              >
+                <Sparkles size={11} />
+                {ACTION_LABELS[action.type]?.(action) ?? action.type}
+              </div>
+            )}
+          </>
         ) : (
           // Streaming dots when content is empty
           <div className="flex items-center gap-1 py-1">
@@ -178,13 +200,14 @@ export function FleetChatWidget() {
     history,
     input,
     setInput,
-    streaming,
+    loading,
     error,
     snapLoading,
     sendMessage,
-    stopStreaming,
+    stopRequest,
     clearHistory,
     refreshFleet,
+    lastAction,
     deviceCount,
   } = useFleetChat();
 
@@ -211,7 +234,7 @@ export function FleetChatWidget() {
   const unreadCount = history.filter((m) => m.role === "assistant").length;
 
   return createPortal(
-    <div className="fixed bottom-6 right-6 z-[9980] flex flex-col items-end gap-3">
+    <div className="fixed bottom-6 right-6 z-[9980] flex flex-col items-end gap-3 pointer-events-none">
       {/* ── Chat panel ── */}
       <div
         className={cn(
@@ -311,10 +334,9 @@ export function FleetChatWidget() {
               key={i}
               role={msg.role}
               content={msg.content}
+              action={msg.action}
               streaming={
-                streaming &&
-                i === history.length - 1 &&
-                msg.role === "assistant"
+                loading && i === history.length - 1 && msg.role === "assistant"
               }
             />
           ))}
@@ -360,10 +382,10 @@ export function FleetChatWidget() {
                        placeholder:text-slate-400 max-h-24 overflow-y-auto"
             style={{ lineHeight: "1.4" }}
           />
-          {streaming ? (
+          {loading ? (
             <button
               type="button"
-              onClick={stopStreaming}
+              onClick={stopRequest}
               className="w-9 h-9 rounded-xl bg-rose-500 text-white flex items-center justify-center
                          hover:bg-rose-600 transition shrink-0 self-end"
             >
@@ -373,15 +395,19 @@ export function FleetChatWidget() {
             <button
               type="button"
               onClick={() => sendMessage()}
-              disabled={!input.trim()}
+              disabled={!input.trim() || loading}
               className={cn(
                 "w-9 h-9 rounded-xl flex items-center justify-center shrink-0 self-end transition",
-                input.trim()
+                input.trim() && !loading
                   ? "bg-primary text-white hover:bg-primary-hover"
                   : "bg-slate-100 text-slate-300 cursor-not-allowed",
               )}
             >
-              <Send size={14} />
+              {loading ? (
+                <RefreshCw size={14} className="animate-spin" />
+              ) : (
+                <Send size={14} />
+              )}
             </button>
           )}
         </div>
@@ -394,7 +420,7 @@ export function FleetChatWidget() {
         className={cn(
           "w-14 h-14 rounded-full shadow-xl flex items-center justify-center transition-all duration-200",
           "bg-gradient-to-br from-primary to-blue-700 text-white",
-          "hover:scale-110 active:scale-95",
+          "hover:scale-110 active:scale-95 pointer-events-auto",
           open && "rotate-0",
         )}
         title="Fleet Chat Assistant"

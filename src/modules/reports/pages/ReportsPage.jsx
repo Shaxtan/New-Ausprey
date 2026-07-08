@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import { ArrowLeft, FileBarChart, ChevronRight } from "lucide-react";
 import { PageHeader } from "@/components/common";
 import DistanceReportPage from "./DistanceReportPage";
@@ -6,8 +7,7 @@ import HourlyReportPage from "./HourlyReportPage";
 import TrackPlayPage from "./TrackPlayPage";
 import StoppageReportPage from "./StoppageReportPage";
 import OverspeedReportPage from "./OverspeedReportPage";
-import LoadCellReportPage from "@/modules/devices/pages/LoadCellReportPage";
-import LiveLoadPage from "@/modules/devices/pages/LiveLoadPage";
+import { PATHS } from "@/constants";
 
 const REPORT_TYPES = [
   {
@@ -35,14 +35,19 @@ const REPORT_TYPES = [
   },
 ];
 
-const FULL_PAGES = {
+// Reports that render inline inside this page
+const INLINE_PAGES = {
   distance: DistanceReportPage,
   hourly: HourlyReportPage,
   trackplay: TrackPlayPage,
   speed: OverspeedReportPage,
   stoppage: StoppageReportPage,
-  "load-cell": LoadCellReportPage,
-  "live-load": LiveLoadPage,
+};
+
+// Reports that have their own dedicated routes — navigate there directly
+const ROUTE_PAGES = {
+  "load-cell": PATHS.LOAD_CELL,
+  "live-load": PATHS.LIVE_LOAD,
 };
 
 function ComingSoon({ name }) {
@@ -57,21 +62,45 @@ function ComingSoon({ name }) {
 }
 
 export default function ReportsPage() {
-  const [active, setActive] = useState(null); // null = landing picker
+  const location = useLocation();
+  const navigate = useNavigate();
+  const [active, setActive] = useState(null);
 
-  // ── A report is selected → full-page takeover with a Back button ──
+  // Chatbot can navigate here with { activeReport } in location.state
+  useEffect(() => {
+    const st = location.state;
+    if (!st?.activeReport) return;
+    const id = st.activeReport;
+    if (ROUTE_PAGES[id]) {
+      navigate(ROUTE_PAGES[id]);
+    } else if (INLINE_PAGES[id]) {
+      setActive(id);
+    }
+  }, [location.state, navigate]);
+
+  const handleSelect = (id) => {
+    if (ROUTE_PAGES[id]) {
+      navigate(ROUTE_PAGES[id]);
+    } else {
+      setActive(id);
+    }
+  };
+
+  // ── Active inline report ──
   if (active) {
-    const FullPage = FULL_PAGES[active];
+    const InlinePage = INLINE_PAGES[active];
     return (
       <div>
         <button
           onClick={() => setActive(null)}
-          className="inline-flex items-center gap-2 mb-4 px-3 py-2 text-sm font-semibold text-slate-600 hover:text-primary bg-white border border-slate-200 rounded-xl hover:border-primary transition"
+          className="inline-flex items-center gap-2 mb-4 px-3 py-2 text-sm font-semibold
+                     text-slate-600 hover:text-primary bg-white border border-slate-200
+                     rounded-xl hover:border-primary transition"
         >
           <ArrowLeft size={16} /> Back to Reports
         </button>
-        {FullPage ? (
-          <FullPage />
+        {InlinePage ? (
+          <InlinePage />
         ) : (
           <ComingSoon
             name={REPORT_TYPES.find((r) => r.id === active)?.name ?? active}
@@ -81,7 +110,7 @@ export default function ReportsPage() {
     );
   }
 
-  // ── Landing → grid of report cards; each opens its own page ──
+  // ── Landing — grid of report type cards ──
   return (
     <div>
       <PageHeader
@@ -93,10 +122,14 @@ export default function ReportsPage() {
         {REPORT_TYPES.map((r) => (
           <button
             key={r.id}
-            onClick={() => setActive(r.id)}
-            className="group flex items-center gap-4 p-5 rounded-2xl border border-slate-200 bg-white text-left hover:border-primary hover:shadow-card transition"
+            onClick={() => handleSelect(r.id)}
+            className="group flex items-center gap-4 p-5 rounded-2xl border border-slate-200
+                       bg-white text-left hover:border-primary hover:shadow-card transition"
           >
-            <span className="w-12 h-12 rounded-xl bg-slate-100 group-hover:bg-blue-100 flex items-center justify-center shrink-0 transition">
+            <span
+              className="w-12 h-12 rounded-xl bg-slate-100 group-hover:bg-blue-100
+                             flex items-center justify-center shrink-0 transition"
+            >
               <FileBarChart
                 size={20}
                 className="text-slate-500 group-hover:text-primary transition"

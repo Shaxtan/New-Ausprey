@@ -25,6 +25,7 @@ import { ExportMenu } from "@/components/common";
 import { VehicleDrawer } from "./VehicleDrawer";
 import apiService from "@/services/apiService";
 import { useAccountStore } from "@/store";
+import { useFleetTableStore } from "@/store/useFleetTableStore";
 
 // ─── Status helpers ───────────────────────────────────────────────────────────
 function getVtsStatus(item) {
@@ -522,13 +523,53 @@ export function FleetTableCard({
   const [page, setPage] = useState(1);
   const PAGE_SIZE = 20;
 
-  // Vehicle detail drawer
-  const [drawerVehicle, setDrawerVehicle] = useState(null);
+  // ── Vehicle drawer — driven by both row clicks AND chatbot actions ──────────
+  const drawerImei = useFleetTableStore((s) => s.drawerImei);
+  const drawerVehicleGlobal = useFleetTableStore((s) => s.drawerVehicle);
+  const setGlobalVehicle = useFleetTableStore((s) => s.setDrawerVehicle);
+  const closeGlobalDrawer = useFleetTableStore((s) => s.closeDrawer);
+  const [localDrawerVehicle, setLocalDrawerVehicle] = useState(null);
 
-  // Single click → open drawer; IMEI text still navigates to tracking
+  // When chatbot opens a drawer by IMEI, find that vehicle in vtsData
+  useEffect(() => {
+    if (!drawerImei) {
+      setLocalDrawerVehicle(null);
+      return;
+    }
+    const found = vtsData.find(
+      (v) => v.imei === drawerImei || v.id === drawerImei,
+    );
+    if (found) {
+      setLocalDrawerVehicle({ ...found, _status: getVtsStatus(found) });
+      setGlobalVehicle(found);
+    }
+  }, [drawerImei, vtsData, setGlobalVehicle]);
+
+  const drawerVehicle = localDrawerVehicle;
+  const closeDrawer = () => {
+    setLocalDrawerVehicle(null);
+    closeGlobalDrawer();
+  };
+
+  // ── Pending filters from chatbot ───────────────────────────────────────────
+  const pendingTab = useFleetTableStore((s) => s.pendingTab);
+  const pendingFilter = useFleetTableStore((s) => s.pendingFilter);
+  const pendingSearch = useFleetTableStore((s) => s.pendingSearch);
+  const clearTableFilter = useFleetTableStore((s) => s.clearTableFilter);
+
+  useEffect(() => {
+    if (!pendingTab && !pendingFilter && pendingSearch === null) return;
+    if (pendingTab) setTab(pendingTab);
+    if (pendingFilter) setVtsFilter(pendingFilter);
+    if (pendingSearch !== null) setSearch(pendingSearch);
+    setPage(1);
+    clearTableFilter();
+  }, [pendingTab, pendingFilter, pendingSearch, clearTableFilter]);
+
+  // Row click → open drawer locally
   const handleVehicleClick = (row) => {
     if (!row?.imei || row.imei === "N/A") return;
-    setDrawerVehicle(row);
+    setLocalDrawerVehicle(row);
   };
 
   const handleImeiClick = (imei, accid) => {
@@ -695,7 +736,7 @@ export function FleetTableCard({
   ];
 
   return (
-    <Card className="mt-5">
+    <Card className="mt-5" id="fleet-table-card">
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
         <div>
@@ -781,10 +822,7 @@ export function FleetTableCard({
 
       {/* Vehicle detail drawer */}
       {drawerVehicle && (
-        <VehicleDrawer
-          vehicle={drawerVehicle}
-          onClose={() => setDrawerVehicle(null)}
-        />
+        <VehicleDrawer vehicle={drawerVehicle} onClose={closeDrawer} />
       )}
 
       {/* Account status popup */}

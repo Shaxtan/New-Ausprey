@@ -1126,12 +1126,13 @@ export default function HourlyReportPage() {
     apiService
       .getImeiDropdown(targetId)
       .then((list) => {
-        setImeiList(
-          list.map((item) => ({
-            value: item.imei,
-            label: item.vehnum ? `${item.vehnum} (${item.imei})` : item.imei,
-          })),
-        );
+        const opts = list.map((item) => ({
+          value: item.imei,
+          label: item.vehnum ? `${item.vehnum} (${item.imei})` : item.imei,
+        }));
+        setImeiList(opts);
+        // Auto-select the first IMEI so the Get Report button is enabled immediately
+        if (opts.length > 0) setImei(opts[0].value);
         setImeiLoading(false);
       })
       .catch(() => setImeiLoading(false));
@@ -1248,10 +1249,10 @@ export default function HourlyReportPage() {
           {/* Fetch */}
           <button
             onClick={handleFetch}
-            disabled={loading || !imei}
+            disabled={loading || imeiLoading || !imei}
             className={cn(
               "flex items-center justify-center gap-2 w-full py-2.5 rounded-xl text-sm font-bold transition mt-5",
-              loading || !imei
+              loading || imeiLoading || !imei
                 ? "bg-slate-100 text-slate-400 cursor-not-allowed"
                 : "bg-primary text-white hover:bg-primary-hover",
             )}
