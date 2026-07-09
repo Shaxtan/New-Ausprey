@@ -1,20 +1,12 @@
 /**
  * ActionExecutor.jsx
  *
- * Watches the useChatActionStore for pending actions dispatched by the
- * Fleet Chat Assistant and executes them against the real application state.
+ * Watches useChatActionStore for pending actions and executes them.
  *
- * Mounted once inside DashboardLayout so it has access to useNavigate
- * and all the stores it needs to drive.
- *
- * Action handlers:
- *   NAVIGATE            → react-router navigate()
- *   TRACK_VEHICLE       → navigate to /tracking with targetImei state
- *   OPEN_VEHICLE_DRAWER → write imei to useFleetTableStore → drawer opens
- *   OPEN_REPORT         → navigate to /reports with report tab state
- *   FILTER_FLEET_TABLE  → write filter to useFleetTableStore → table reacts
- *   OPEN_ALERTS         → navigate to /alerts
- *   OPEN_TRACK_PLAY     → navigate to /reports with trackplay tab + imei state
+ * Key improvement: resolveImei() — when the LLM returns a vehicleNumber
+ * instead of (or alongside) an IMEI, we look it up from the live fleet
+ * snapshot in useFleetTableStore so vehicle-number-based commands work
+ * even if the LLM doesn't reliably copy the IMEI from the context.
  */
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
@@ -22,7 +14,6 @@ import { useChatActionStore } from "@/store/useChatActionStore";
 import { useFleetTableStore } from "@/store/useFleetTableStore";
 import { PATHS } from "@/constants";
 
-// Map report names the LLM might use → report IDs used in ReportsPage
 const REPORT_ID_MAP = {
   distance: "distance",
   stoppage: "stoppage",
@@ -43,50 +34,83 @@ export function ActionExecutor() {
   const openDrawer = useFleetTableStore((s) => s.openDrawerByImei);
   const applyFilter = useFleetTableStore((s) => s.applyTableFilter);
 
+  // Access the live fleet vehicles list stored in the chat hook via a ref
+  // We pull it from the window-level cache set by useFleetChat
+  const resolveImei = (act) => {
+    // If a valid IMEI is already provided, use it directly
+    const provided = act.imei?.trim();
+
+    // Grab the fleet snapshot the chat hook stashed on window
+    const vehicles = window.__fleetChatVehicles ?? [];
+
+    if (provided && provided.length > 8) {
+      // Looks like a real IMEI — verify it exists in our fleet, return it
+      const match = vehicles.find(
+        (v) => v.id === provided || v.imei === provided,
+      );
+      if (match) return { imei: provided, accountId: match.accountId };
+    }
+
+    // Try to match by vehicleNumber (what the user typed / LLM returned)
+    const vehicleNumber = act.vehicleNumber?.trim();
+    if (vehicleNumber) {
+      const match = vehicles.find((v) => {
+        const name = (v.name ?? "").toLowerCase();
+        const vn = vehicleNumber.toLowerCase();
+        return name === vn || name.includes(vn) || vn.includes(name);
+      });
+      if (match) return { imei: match.id, accountId: match.accountId };
+    }
+
+    // Last resort: partial match on the provided IMEI value against vehicle names
+    if (provided) {
+      const match = vehicles.find((v) =>
+        (v.name ?? "").toLowerCase().includes(provided.toLowerCase()),
+      );
+      if (match) return { imei: match.id, accountId: match.accountId };
+    }
+
+    return { imei: provided ?? null, accountId: act.accountId ?? null };
+  };
+
   useEffect(() => {
     if (!pendingAction) return;
-
     const act = pendingAction;
-    clearAction(); // clear immediately to avoid re-triggering
+    clearAction();
 
     switch (act.type) {
       case "NAVIGATE": {
-        const target = act.to ?? PATHS.DASHBOARD;
-        navigate(target, { state: act.state ?? {} });
+        navigate(act.to ?? PATHS.DASHBOARD, { state: act.state ?? {} });
         break;
       }
 
       case "TRACK_VEHICLE": {
-        if (!act.imei) break;
+        const { imei, accountId } = resolveImei(act);
+        if (!imei) break;
         navigate(PATHS.TRACKING, {
-          state: { targetImei: act.imei, targetAccountId: act.accountId },
+          state: { targetImei: imei, targetAccountId: accountId },
         });
         break;
       }
 
       case "OPEN_VEHICLE_DRAWER": {
-        if (!act.imei) break;
-        // Navigate to dashboard first if not there, then open drawer
+        const { imei } = resolveImei(act);
+        if (!imei) break;
         navigate(PATHS.DASHBOARD);
-        // Small delay so the dashboard mounts before we write to the store
-        setTimeout(() => openDrawer(act.imei), 300);
+        setTimeout(() => openDrawer(imei), 300);
         break;
       }
 
       case "OPEN_REPORT": {
+        const { imei } = resolveImei(act);
         const reportId = REPORT_ID_MAP[act.report?.toLowerCase()] ?? act.report;
         navigate(PATHS.REPORTS, {
-          state: {
-            activeReport: reportId,
-            prefillImei: act.imei ?? null,
-            prefillRange: act.range ?? null,
-          },
+          state: { activeReport: reportId, prefillImei: imei ?? null },
         });
         break;
       }
 
       case "FILTER_FLEET_TABLE": {
-        // Navigate to dashboard, then apply the filter
         navigate(PATHS.DASHBOARD);
         setTimeout(() => {
           applyFilter({
@@ -94,7 +118,6 @@ export function ActionExecutor() {
             filter: act.filter ?? "all",
             search: act.search ?? null,
           });
-          // Scroll to the fleet table
           setTimeout(() => {
             document.getElementById("fleet-table-card")?.scrollIntoView({
               behavior: "smooth",
@@ -111,12 +134,9 @@ export function ActionExecutor() {
       }
 
       case "OPEN_TRACK_PLAY": {
+        const { imei } = resolveImei(act);
         navigate(PATHS.REPORTS, {
-          state: {
-            activeReport: "trackplay",
-            prefillImei: act.imei ?? null,
-            prefillRange: act.range ?? null,
-          },
+          state: { activeReport: "trackplay", prefillImei: imei ?? null },
         });
         break;
       }
@@ -124,9 +144,10 @@ export function ActionExecutor() {
       default:
         console.warn("[ActionExecutor] Unknown action type:", act.type);
     }
-  }, [pendingAction, clearAction, navigate, openDrawer, applyFilter]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingAction]);
 
-  return null; // purely side-effects, no UI
+  return null;
 }
 
 export default ActionExecutor;

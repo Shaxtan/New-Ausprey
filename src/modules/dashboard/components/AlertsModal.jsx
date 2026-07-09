@@ -84,7 +84,8 @@ export function AlertsModal({ type = "ALL", alerts = [], onClose }) {
         (a) =>
           a.vehicleNumber?.toLowerCase().includes(term) ||
           a.imei?.toLowerCase().includes(term) ||
-          a.address?.toLowerCase().includes(term),
+          a.address?.toLowerCase().includes(term) ||
+          a.message?.toLowerCase().includes(term),
       );
     }
     // Most recent first (by createdOn)
@@ -131,7 +132,7 @@ export function AlertsModal({ type = "ALL", alerts = [], onClose }) {
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search vehicle, IMEI, or address…"
+              placeholder="Search vehicle, IMEI, address or message…"
               className="w-full pl-9 pr-3 py-2 text-sm rounded-lg border border-slate-200 outline-none focus:border-primary"
             />
           </div>
@@ -158,6 +159,9 @@ export function AlertsModal({ type = "ALL", alerts = [], onClose }) {
                   </th>
                   <th className="px-4 py-2.5 text-left text-slate-400 font-semibold">
                     Address
+                  </th>
+                  <th className="px-4 py-2.5 text-left text-slate-400 font-semibold">
+                    Message
                   </th>
                   <th className="px-4 py-2.5 text-center text-slate-400 font-semibold">
                     Speed
@@ -192,13 +196,23 @@ export function AlertsModal({ type = "ALL", alerts = [], onClose }) {
                       {a.imei}
                     </td>
                     <td
-                      className="px-4 py-2.5 text-slate-600 max-w-[220px] truncate"
+                      className="px-4 py-2.5 text-slate-600 max-w-[180px] truncate"
                       title={a.address}
                     >
                       <span className="flex items-center gap-1">
                         <MapPin size={11} className="text-slate-400 shrink-0" />
                         {a.address || "—"}
                       </span>
+                    </td>
+                    <td
+                      className="px-4 py-2.5 text-slate-500 max-w-[220px] truncate"
+                      title={a.message || undefined}
+                    >
+                      {a.message ? (
+                        <span className="text-[11px] italic">{a.message}</span>
+                      ) : (
+                        <span className="text-slate-300">—</span>
+                      )}
                     </td>
                     <td className="px-4 py-2.5 text-center text-slate-600">
                       {a.speed ?? 0} km/h

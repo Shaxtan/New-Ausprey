@@ -82,6 +82,8 @@ export function useFleetChat() {
           : { summary: [], data: [] };
       const snap = { devices: devices ?? [], alerts };
       setFleetSnap(snap);
+      // Expose vehicles globally so ActionExecutor can resolve vehicle numbers → IMEIs
+      window.__fleetChatVehicles = devices ?? [];
       return snap;
     } catch {
       const snap = { devices: [], alerts: { summary: [], data: [] } };
