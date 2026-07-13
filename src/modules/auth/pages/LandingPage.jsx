@@ -1,446 +1,469 @@
-import { useState } from 'react';
-import { motion } from 'framer-motion';
+import { useEffect, useRef, useState } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { motion, AnimatePresence, useInView, animate } from 'framer-motion';
 import {
-  Radio, BarChart3, Truck, Activity, Bell, Cloud,
-  ArrowRight, ChevronDown, Target, TrendingUp,
-  MapPin, Menu, TrendingUp as TrendUp,
+  Navigation, Radio, BarChart3, Truck, Activity, Route,
+  ArrowRight, Play, MapPin, Bell, Building2, Snowflake,
+  Factory, ShoppingCart, Server, Clock,
 } from 'lucide-react';
 import { cn } from '@/utils';
-import { Logo } from '@/layouts/components/Logo';
+import { PATHS } from '@/constants';
+import { Nav, Footer, CtaBanner, BG, PANEL, PANEL2, GOLD_GRADIENT, KEYFRAMES, fadeUp } from '@/modules/marketing/shared';
 import LoginModal from '../components/LoginModal';
 
-const NAV_LINKS = [
-  { label: 'Solutions',  dropdown: true  },
-  { label: 'Products',   dropdown: false },
-  { label: 'Technology', dropdown: false },
-  { label: 'Industries', dropdown: true  },
-  { label: 'Resources',  dropdown: true  },
-  { label: 'Company',    dropdown: true  },
+/* ─────────────────────────── data (landing-page-only) ───────────────── */
+const CAPABILITIES = [
+  { icon: Server,     label: 'Bank-grade encryption' },
+  { icon: Server,     label: '99.9% uptime SLA' },
+  { icon: Radio,      label: 'Real-time IoT sync' },
+  { icon: Navigation, label: 'Live GPS tracking' },
+  { icon: BarChart3,  label: 'Enterprise-ready reporting' },
+  { icon: Clock,      label: '24/7 platform monitoring' },
 ];
 
-const HERO_TAGS = [
-  { icon: MapPin,     label: 'tracking'  },
-  { icon: Radio,      label: 'sensors'   },
-  { icon: Truck,      label: 'fleet'     },
-  { icon: BarChart3,  label: 'analytics' },
+const STATS = [
+  { to: 2600, suffix: '+',  label: 'Vehicles Tracked' },
+  { to: 48,   suffix: 'M+', label: 'KMs Tracked Monthly' },
+  { to: 360,  suffix: 'M',  label: 'Data Points / Day' },
+  { to: 99.9, suffix: '%',  decimals: 1, label: 'Uptime SLA' },
+  { static: '24/7',         label: 'Monitoring & Support' },
 ];
 
-const TRUSTED = ['DHL', 'MAERSK', 'CEVA', 'dpd', 'XPO', 'GEODIS'];
+// The five feature-module cards shown on the landing page — distinct from
+// the six routable product pages in modules/marketing/data/products.js
+const MODULE_CARDS = [
+  { icon: Navigation, title: 'Live Tracking',       desc: 'Track every vehicle, every route, in real time.',            glow: 'rgba(59,130,246,0.35)'  },
+  { icon: Radio,      title: 'IoT Sensors',          desc: 'Load cells, fuel, temperature and diagnostics from the field.', glow: 'rgba(139,92,246,0.35)' },
+  { icon: Activity,   title: 'Load Cell Analytics',  desc: 'Live and historical load graphs for every IMEI.',            glow: 'rgba(16,185,129,0.32)'  },
+  { icon: Route,      title: 'Trip Management',      desc: 'Plan, dispatch and monitor trips end to end.',               glow: 'rgba(210,154,74,0.38)'  },
+  { icon: BarChart3,  title: 'Reports & Analytics',  desc: 'Distance, working hours, alerts — exported in one click.',   glow: 'rgba(244,63,94,0.30)'   },
+];
 
-const SOLUTIONS = [
+// The five tabbed "industries we serve" panels on the landing page — distinct
+// from the two routable industry pages in modules/marketing/data/industries.js
+const INDUSTRY_TABS = [
   {
-    icon: MapPin,
-    title: 'Tracking',
-    desc: 'Track assets in real-time with accurate location data.',
-    img: 'https://images.unsplash.com/photo-1524661135-423995f22d0b?auto=format&fit=crop&w=600&q=80',
+    id: 'construction', icon: Building2, label: 'Construction',
+    title: 'Optimize site logistics and reduce project delays',
+    points: [
+      ['Multi-Site Material Coordination', 'Auto-route deliveries across sites based on material urgency and readiness.'],
+      ['Heavy Equipment Tracking', 'GPS-enabled tracking of mixers, dump trucks, cranes and machinery.'],
+      ['Geofenced Site Alerts', 'Instant entry/exit alerts for every vehicle at every site boundary.'],
+    ],
+    img: 'https://images.unsplash.com/photo-1541888946425-d81bb19240f5?auto=format&fit=crop&w=900&q=80',
   },
   {
-    icon: Radio,
-    title: 'Sensors',
-    desc: 'Monitor temperature, humidity, motion and more.',
-    img: 'https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=600&q=80',
+    id: 'logistics', icon: Truck, label: 'Logistics & Transport',
+    title: 'Move freight with total visibility',
+    points: [
+      ['Live GPS + Route History', 'Every vehicle on one map with full historical track playback.'],
+      ['Trip Planning & Live ETA', 'Dispatch, monitor progress and share accurate arrival times.'],
+      ['Driver Behaviour Insights', 'Overspeed, idling and stoppage reports per vehicle and driver.'],
+    ],
+    img: 'https://images.unsplash.com/photo-1601584115197-04ecc0da31d7?auto=format&fit=crop&w=900&q=80',
   },
   {
-    icon: Truck,
-    title: 'Fleet',
-    desc: 'Optimize fleet performance and driver safety.',
-    img: 'https://images.unsplash.com/photo-1601584115197-04ecc0da31d7?auto=format&fit=crop&w=600&q=80',
+    id: 'coldchain', icon: Snowflake, label: 'Cold Chain & Pharma',
+    title: 'Protect temperature-sensitive cargo',
+    points: [
+      ['Continuous Temperature Sensing', 'IoT probes stream cargo temperature to the platform in real time.'],
+      ['Breach Alerts in Seconds', 'Threshold violations trigger instant notifications to your team.'],
+      ['Compliance-Ready Reports', 'Exportable temperature logs for audits and SLAs.'],
+    ],
+    img: 'https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?auto=format&fit=crop&w=900&q=80',
   },
   {
-    icon: BarChart3,
-    title: 'Analytics',
-    desc: 'Turn data into insights and make smarter decisions.',
-    img: 'https://images.unsplash.com/photo-1551288049-bebda4e38f71?auto=format&fit=crop&w=600&q=80',
+    id: 'mining', icon: Factory, label: 'Cement & Mining',
+    title: 'Track heavy assets in harsh environments',
+    points: [
+      ['Load Cell Weight Monitoring', 'Live axle-load graphs catch overloading before penalties.'],
+      ['Working-Hour Reports', 'Engine-hour and utilisation analytics for every machine.'],
+      ['Unreachable Device Alerts', 'Know immediately when a device drops off the network.'],
+    ],
+    img: 'https://images.unsplash.com/photo-1513828583688-c52646db42da?auto=format&fit=crop&w=900&q=80',
+  },
+  {
+    id: 'ecommerce', icon: ShoppingCart, label: 'E-Commerce',
+    title: 'Deliver faster with fewer failed runs',
+    points: [
+      ['Last-Mile Tracking', 'Live rider and van positions across every delivery zone.'],
+      ['Geofence Notifications', 'Automatic events when vehicles reach hubs and drop points.'],
+      ['Distance & Cost Reports', 'Daily distance per vehicle to keep delivery costs in check.'],
+    ],
+    img: 'https://images.unsplash.com/photo-1553413077-25b4c0670e4d?auto=format&fit=crop&w=900&q=80',
   },
 ];
 
-const WHY_ITEMS = [
-  { icon: Target,     title: 'Real-time Visibility',  desc: "Know where your assets are and what they're doing, anytime, anywhere." },
-  { icon: TrendingUp, title: 'Improve Efficiency',    desc: 'Optimize routes, reduce downtime, and lower operational costs.'        },
-  { icon: Bell,       title: 'Enhanced Safety',       desc: 'Get instant alerts and reduce risks for your people and assets.'       },
-  { icon: Cloud,      title: 'Scalable Platform',     desc: 'Flexible, secure, and built to grow with your business.'               },
-  { icon: TrendUp,    title: 'Data-Driven Decisions', desc: 'Leverage powerful analytics to drive performance and growth.'          },
-];
+/* ─────────────────────────── shared bits ───────────────────────────── */
+function CountUp({ to, decimals = 0, suffix = '', prefix = '' }) {
+  const ref = useRef(null);
+  const inView = useInView(ref, { once: true, margin: '-60px' });
+  const [val, setVal] = useState(0);
 
-/* ══════════════════════════════════ NAV ══════════════════════════════════ */
-function Nav({ onLogin }) {
+  useEffect(() => {
+    if (!inView) return;
+    const controls = animate(0, to, { duration: 1.8, ease: [0.22, 1, 0.36, 1], onUpdate: (v) => setVal(v) });
+    return () => controls.stop();
+  }, [inView, to]);
+
+  const shown = decimals ? val.toFixed(decimals) : Math.round(val).toLocaleString('en-IN');
+  return <span ref={ref}>{prefix}{shown}{suffix}</span>;
+}
+
+/* ─────────────────────────── HERO ──────────────────────────────────── */
+function Hero({ onLogin }) {
   return (
-    <header className="fixed inset-x-0 top-0 z-50 bg-sidebar">
-      <div className="mx-auto flex h-[68px] max-w-[1180px] items-center justify-between px-6">
-        {/* logo scaled down */}
-        <div className="scale-[0.82] origin-left">
-          <Logo />
-        </div>
-
-        <nav className="hidden lg:flex items-center gap-7">
-          {NAV_LINKS.map((l) => (
-            <button
-              key={l.label}
-              className="flex items-center gap-1 text-[13.5px] font-medium text-slate-300 hover:text-white transition"
-            >
-              {l.label}
-              {l.dropdown && <ChevronDown size={13} className="mt-0.5 text-slate-500" />}
-            </button>
-          ))}
-        </nav>
-
-        <button
-          onClick={onLogin}
-          className="hidden sm:flex items-center gap-2 rounded-lg bg-brand-gold px-5 py-2.5 text-[13.5px] font-bold text-white shadow-md shadow-black/20 transition hover:bg-amber-500"
-        >
-          Login <ArrowRight size={15} />
-        </button>
-
-        <button onClick={onLogin} className="sm:hidden text-white"><Menu size={22} /></button>
+    <section className="relative flex min-h-[92vh] flex-col items-center justify-center overflow-hidden pt-28 text-center">
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 h-[46vh] overflow-hidden" style={{ perspective: '520px' }}>
+        <div
+          className="anim-grid absolute left-[-50%] top-0 h-[200%] w-[200%]"
+          style={{
+            transform: 'rotateX(64deg)', transformOrigin: 'top center',
+            backgroundImage: 'linear-gradient(rgba(210,154,74,0.20) 1px, transparent 1px), linear-gradient(90deg, rgba(210,154,74,0.20) 1px, transparent 1px)',
+            backgroundSize: '44px 44px', animation: 'gridMove 14s linear infinite',
+            maskImage: 'linear-gradient(to bottom, rgba(0,0,0,0.9), transparent 88%)',
+            WebkitMaskImage: 'linear-gradient(to bottom, rgba(0,0,0,0.9), transparent 88%)',
+          }}
+        />
+        <div className="absolute left-1/2 top-0 h-44 w-[70%] -translate-x-1/2 rounded-full bg-brand-gold/10 blur-[90px]" />
+        <div className="absolute inset-x-0 top-0 h-20 bg-gradient-to-b from-[#070F1E] to-transparent" />
       </div>
-    </header>
+
+      <div className="pointer-events-none absolute -top-20 right-[10%] h-96 w-96 rounded-full bg-blue-600/10 blur-[140px]" />
+
+      <div className="relative z-10 mx-auto max-w-4xl px-6">
+        <motion.p initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }} className="text-[12px] font-bold uppercase tracking-[0.28em] text-slate-400">
+          Track · Monitor · Optimize
+        </motion.p>
+
+        <motion.h1 initial={{ opacity: 0, y: 26 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.65, delay: 0.08 }}
+          className="mt-6 text-[clamp(2.6rem,6.2vw,4.6rem)] font-black leading-[1.06] tracking-[-0.02em] text-white">
+          The <span className={GOLD_GRADIENT}>Intelligence</span> Layer
+          <br />For Your Fleet Operations
+        </motion.h1>
+
+        <motion.p initial={{ opacity: 0, y: 22 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, delay: 0.2 }}
+          className="mx-auto mt-6 max-w-xl text-[16px] leading-7 text-slate-400">
+          From vehicles to sensors to reports — Eyeoty helps your operation run
+          with greater efficiency, reliability, and control.
+        </motion.p>
+
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, delay: 0.32 }}
+          className="mt-10 flex flex-wrap items-center justify-center gap-4">
+          <button onClick={onLogin} className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-brand-gold to-amber-500 px-7 py-3.5 text-[14px] font-bold uppercase tracking-wide text-white shadow-xl shadow-amber-900/30 transition hover:-translate-y-0.5 hover:brightness-110">
+            Request a Demo <ArrowRight size={16} />
+          </button>
+          <button className="flex items-center gap-2 rounded-xl bg-white px-7 py-3.5 text-[14px] font-bold uppercase tracking-wide text-slate-900 transition hover:-translate-y-0.5 hover:bg-slate-200">
+            <Play size={15} className="fill-slate-900" /> Watch Product Demo
+          </button>
+        </motion.div>
+      </div>
+
+      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.6, duration: 0.8 }} className="relative z-10 mt-20 w-full">
+        <p className="mb-5 text-center text-[12px] font-semibold uppercase tracking-[0.22em] text-slate-500">
+          Built for fleet &amp; logistics operations
+        </p>
+        <div className="relative mx-auto max-w-5xl overflow-hidden" style={{ maskImage: 'linear-gradient(to right, transparent, black 12%, black 88%, transparent)' }}>
+          <div className="anim-marquee flex w-max items-center gap-14 py-2" style={{ animation: 'marquee 26s linear infinite' }}>
+            {[...CAPABILITIES, ...CAPABILITIES].map((c, i) => (
+              <span key={i} className="flex items-center gap-2.5 whitespace-nowrap text-[14px] font-semibold text-slate-400">
+                <c.icon size={15} className="text-brand-gold" /> {c.label}
+              </span>
+            ))}
+          </div>
+        </div>
+      </motion.div>
+    </section>
   );
 }
 
-/* ═════════════════════════════════ HERO ═════════════════════════════════ */
-function Hero({ onLogin }) {
+/* ─────────────────────────── STATS ─────────────────────────────────── */
+function StatsBand() {
   return (
-    <section className="relative overflow-hidden bg-sidebar pt-[68px]">
-      <div
-        className="pointer-events-none absolute inset-y-0 right-0 w-3/5 opacity-[0.5]"
-        style={{
-          backgroundImage: 'radial-gradient(rgba(96,165,250,0.35) 1px, transparent 1.4px)',
-          backgroundSize: '22px 22px',
-          maskImage: 'radial-gradient(ellipse 80% 90% at 75% 40%, black 30%, transparent 75%)',
-          WebkitMaskImage: 'radial-gradient(ellipse 80% 90% at 75% 40%, black 30%, transparent 75%)',
-        }}
-      />
-      <div className="pointer-events-none absolute -top-10 right-24 h-96 w-96 rounded-full bg-blue-500/15 blur-[130px]" />
+    <section className="border-y border-white/5 py-16" style={{ backgroundColor: PANEL }}>
+      <div className="mx-auto grid max-w-[1180px] grid-cols-2 gap-y-12 px-6 sm:grid-cols-3 lg:grid-cols-5">
+        {STATS.map((s, i) => (
+          <motion.div key={s.label} {...fadeUp} transition={{ ...fadeUp.transition, delay: i * 0.07 }}
+            className={cn('relative text-center', i > 0 && 'lg:border-l lg:border-white/8')}>
+            <div className="text-[clamp(2rem,3.4vw,2.9rem)] font-black tracking-tight text-white">
+              {s.static ? s.static : <CountUp to={s.to} decimals={s.decimals} suffix={s.suffix} />}
+            </div>
+            <div className="mt-2 text-[12px] font-bold uppercase tracking-[0.14em] text-slate-500">{s.label}</div>
+          </motion.div>
+        ))}
+      </div>
+    </section>
+  );
+}
 
-      <div className="relative mx-auto grid max-w-[1180px] grid-cols-1 items-center gap-12 px-6 py-16 lg:grid-cols-[1fr_1.05fr] lg:py-24">
-        {/* ── Left copy ── */}
-        <motion.div initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.55 }}>
-          <p className="text-[13px] font-bold uppercase tracking-[0.18em] text-brand-gold">
-            Track. Monitor. Optimize.
+/* ─────────────────────────── MODULE CARDS ──────────────────────────── */
+function ModuleCards({ onLogin }) {
+  return (
+    <section className="py-24">
+      <div className="mx-auto max-w-[1180px] px-6">
+        <motion.div {...fadeUp} className="mb-14 text-center">
+          <p className="text-[12px] font-bold uppercase tracking-[0.28em] text-slate-500">Intelligence by Eyeoty</p>
+          <h2 className="mt-4 text-[clamp(1.9rem,3.6vw,2.8rem)] font-black tracking-tight text-white">
+            Five modules. <span className={GOLD_GRADIENT}>One platform.</span>
+          </h2>
+          <p className="mx-auto mt-4 max-w-xl text-[15px] text-slate-400">
+            An end-to-end stack for fleet &amp; IoT — built natively for real-time operations.
           </p>
+        </motion.div>
 
-          <h1 className="mt-6 font-black tracking-[-0.02em] text-white text-[clamp(2.75rem,5.5vw,4rem)] leading-[1.04]">
-            Smarter Tracking<br />Better Decisions
-          </h1>
-
-          <p className="mt-6 max-w-md text-[15px] leading-7 text-slate-300/90">
-            Auspre delivers real-time visibility of your assets, sensors,
-            and fleet — so you can improve efficiency, safety, and performance.
-          </p>
-
-          <div className="mt-9 flex flex-wrap gap-3.5">
-            <button
-              onClick={onLogin}
-              className="flex items-center gap-2 rounded-lg bg-brand-gold px-6 py-3.5 text-[14.5px] font-bold text-white shadow-lg shadow-black/20 transition hover:-translate-y-0.5 hover:bg-amber-500"
-            >
-              Request a Demo <ArrowRight size={16} />
-            </button>
-            <button className="flex items-center gap-2 rounded-lg border border-white/25 px-6 py-3.5 text-[14.5px] font-semibold text-white transition hover:bg-white/5">
-              Explore Solutions <ArrowRight size={16} />
-            </button>
-          </div>
-
-          <div className="mt-12 flex flex-wrap items-center gap-x-6 gap-y-3">
-            {HERO_TAGS.map((t, i) => (
-              <div key={t.label} className="flex items-center gap-4">
-                {i > 0 && <span className="hidden h-4 w-px bg-white/15 sm:block" />}
-                <span className="flex items-center gap-2 text-[13px] font-medium text-brand-gold">
-                  <t.icon size={15} /> <span className="text-slate-300">{t.label}</span>
-                </span>
+        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-5">
+          {MODULE_CARDS.map((p, i) => (
+            <motion.div key={p.title} {...fadeUp} transition={{ ...fadeUp.transition, delay: i * 0.08 }} whileHover={{ y: -6 }}
+              className="group relative flex flex-col overflow-hidden rounded-2xl border border-white/8 p-6" style={{ backgroundColor: PANEL }}>
+              <div className="pointer-events-none absolute -bottom-24 left-1/2 h-56 w-56 -translate-x-1/2 rounded-full blur-[70px] opacity-70 transition-opacity duration-300 group-hover:opacity-100" style={{ backgroundColor: p.glow }} />
+              <h3 className="relative text-[17px] font-black leading-snug text-white">{p.title}</h3>
+              <p className="relative mt-2.5 text-[13px] leading-relaxed text-slate-400">{p.desc}</p>
+              <div className="relative my-8 flex flex-1 items-center justify-center">
+                <p.icon size={52} strokeWidth={1.3} className="text-white/85" />
               </div>
+              <button onClick={onLogin} className="relative flex w-full items-center justify-center gap-1.5 rounded-xl border border-white/12 py-2.5 text-[13px] font-bold text-white transition hover:border-white/30 hover:bg-white/5">
+                Explore <ArrowRight size={14} />
+              </button>
+            </motion.div>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/* ─────────────────────────── INDUSTRY TABS ─────────────────────────── */
+function IndustryTabs() {
+  const [active, setActive] = useState(INDUSTRY_TABS[0].id);
+  const current = INDUSTRY_TABS.find((i) => i.id === active);
+
+  return (
+    <section className="border-y border-white/5 py-24" style={{ backgroundColor: '#060C18' }}>
+      <div className="mx-auto max-w-[1180px] px-6">
+        <motion.div {...fadeUp} className="mb-12 text-center">
+          <h2 className="text-[clamp(1.9rem,3.6vw,2.8rem)] font-black tracking-tight text-white">
+            Trusted Across <span className={GOLD_GRADIENT}>Industries</span>
+          </h2>
+          <p className="mx-auto mt-4 max-w-xl text-[15px] text-slate-400">
+            To increase efficiency, productivity and safety across fleet &amp; transport operations.
+          </p>
+        </motion.div>
+
+        <motion.div {...fadeUp} className="mb-12 flex justify-center">
+          <div className="flex max-w-full gap-1.5 overflow-x-auto rounded-2xl border border-white/8 p-1.5" style={{ backgroundColor: PANEL }}>
+            {INDUSTRY_TABS.map((ind) => (
+              <button key={ind.id} onClick={() => setActive(ind.id)}
+                className={cn(
+                  'flex shrink-0 items-center gap-2 rounded-xl px-4 py-2.5 text-[13px] font-bold transition-all',
+                  active === ind.id ? 'bg-gradient-to-r from-brand-gold/25 to-amber-500/15 text-white ring-1 ring-brand-gold/40' : 'text-slate-400 hover:text-white'
+                )}>
+                <ind.icon size={15} /> {ind.label}
+              </button>
             ))}
           </div>
         </motion.div>
 
-        {/* ── Right device mockup ── */}
-        <motion.div
-          initial={{ opacity: 0, scale: 0.96 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 0.7, delay: 0.15 }}
-          className="relative hidden lg:block h-[420px]"
-        >
-          <LaptopMock />
-          <PhoneMock />
+        <AnimatePresence mode="wait">
+          <motion.div key={current.id} initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -12 }}
+            transition={{ duration: 0.35, ease: 'easeOut' }} className="grid grid-cols-1 items-center gap-12 lg:grid-cols-2">
+            <div>
+              <p className="text-[12px] font-bold uppercase tracking-[0.3em] text-brand-gold">{current.label}</p>
+              <h3 className="mt-4 text-[clamp(1.6rem,2.8vw,2.2rem)] font-black leading-tight tracking-tight text-white">{current.title}</h3>
+              <div className="mt-8 space-y-6">
+                {current.points.map(([t, d]) => (
+                  <div key={t} className="flex gap-4 border-b border-white/6 pb-6 last:border-0 last:pb-0">
+                    <ArrowRight size={17} className="mt-0.5 shrink-0 text-brand-gold" />
+                    <div>
+                      <p className="text-[15px] font-bold text-white">{t}</p>
+                      <p className="mt-1 text-[13.5px] leading-relaxed text-slate-400">{d}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="relative overflow-hidden rounded-2xl border border-white/10">
+              <img src={current.img} alt={current.label} loading="lazy" className="h-[380px] w-full object-cover" style={{ backgroundColor: PANEL2 }} />
+              <div className="absolute inset-0 bg-gradient-to-t from-[#070F1E]/70 via-transparent to-transparent" />
+            </div>
+          </motion.div>
+        </AnimatePresence>
+      </div>
+    </section>
+  );
+}
+
+/* ─────────────────────── PLATFORM PREVIEW ──────────────────────────── */
+const PREVIEW_TABS = ['Dashboard', 'Live Tracking', 'Load Cell Report'];
+
+function PlatformPreview() {
+  const [tab, setTab] = useState(PREVIEW_TABS[0]);
+
+  return (
+    <section className="py-24">
+      <div className="mx-auto max-w-[1180px] px-6">
+        <motion.div {...fadeUp} className="mb-10 text-center">
+          <h2 className="text-[clamp(1.9rem,3.6vw,2.8rem)] font-black tracking-tight text-white">
+            The Platform Powering Your <span className={GOLD_GRADIENT}>Entire Fleet Operation</span>
+          </h2>
+        </motion.div>
+
+        <motion.div {...fadeUp} className="mb-8 flex flex-wrap justify-center gap-2">
+          {PREVIEW_TABS.map((t) => (
+            <button key={t} onClick={() => setTab(t)}
+              className={cn(
+                'rounded-xl px-5 py-2.5 text-[13px] font-bold transition-all',
+                tab === t ? 'bg-gradient-to-r from-brand-gold/25 to-amber-500/15 text-white ring-1 ring-brand-gold/40' : 'border border-white/10 text-slate-400 hover:text-white'
+              )}>
+              {t}
+            </button>
+          ))}
+        </motion.div>
+
+        <motion.div {...fadeUp} className="overflow-hidden rounded-2xl border border-white/10 shadow-2xl" style={{ backgroundColor: PANEL }}>
+          <div className="flex items-center gap-2 border-b border-white/6 px-4 py-3">
+            <span className="h-2.5 w-2.5 rounded-full bg-red-400/70" />
+            <span className="h-2.5 w-2.5 rounded-full bg-amber-400/70" />
+            <span className="h-2.5 w-2.5 rounded-full bg-emerald-400/70" />
+            <span className="ml-4 rounded-md bg-white/5 px-3 py-1 text-[11px] font-semibold text-slate-400">
+              app.eyeoty.com/{tab.toLowerCase().replace(/ /g, '-')}
+            </span>
+          </div>
+          <AnimatePresence mode="wait">
+            <motion.div key={tab} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.3 }} className="p-6">
+              {tab === 'Dashboard'        && <MockDashboard />}
+              {tab === 'Live Tracking'    && <MockTracking />}
+              {tab === 'Load Cell Report' && <MockLoadCell />}
+            </motion.div>
+          </AnimatePresence>
         </motion.div>
       </div>
     </section>
   );
 }
 
-function LaptopMock() {
+function MockDashboard() {
   return (
-    <div className="absolute left-0 top-2 w-[80%]">
-      <div className="rounded-t-xl border-[6px] border-b-0 border-slate-800 bg-[#0B1526] shadow-2xl overflow-hidden">
-        <div className="flex items-center gap-1.5 border-b border-white/5 px-3 py-2">
-          <span className="h-2 w-2 rounded-full bg-red-400/70" />
-          <span className="h-2 w-2 rounded-full bg-amber-400/70" />
-          <span className="h-2 w-2 rounded-full bg-emerald-400/70" />
-          <span className="ml-3 text-[9px] font-semibold text-slate-400">Dashboard</span>
-        </div>
-        <div className="flex">
-          <div className="hidden sm:flex w-9 flex-col items-center gap-3 border-r border-white/5 py-3">
-            {[Truck, MapPin, BarChart3, Bell, Activity].map((I, i) => (
-              <I key={i} size={11} className={i === 0 ? 'text-blue-400' : 'text-slate-600'} />
-            ))}
-          </div>
-          <div className="flex-1 p-3">
-            <p className="text-[8px] font-semibold text-slate-500 mb-2">Live Overview</p>
-            <div className="grid grid-cols-3 gap-2 mb-2.5">
-              {[
-                { l: 'Assets', v: '2,635', c: 'text-white' },
-                { l: 'Active', v: '1,983', c: 'text-emerald-400' },
-                { l: 'Alerts', v: '23',    c: 'text-red-400' },
-              ].map((k) => (
-                <div key={k.l} className="rounded-md bg-white/[0.04] p-2">
-                  <p className="text-[6.5px] text-slate-500">{k.l}</p>
-                  <p className={cn('text-[13px] font-black leading-none mt-1', k.c)}>{k.v}</p>
-                  <div className="mt-1.5 h-3 rounded-sm bg-gradient-to-t from-blue-500/30 to-transparent" />
-                </div>
-              ))}
-            </div>
-            <div className="relative h-[92px] rounded-md bg-[#0d1a30] overflow-hidden"
-              style={{ backgroundImage: 'radial-gradient(rgba(96,165,250,0.25) 0.8px, transparent 0.8px)', backgroundSize: '10px 10px' }}>
-              <svg className="absolute inset-0 h-full w-full" viewBox="0 0 200 92" fill="none">
-                <path d="M20 70 Q70 20 110 55 T185 30" stroke="#f59e0b" strokeWidth="1.5" strokeDasharray="3 3" opacity="0.8" />
-                <circle cx="20" cy="70" r="3" fill="#3b82f6" />
-                <circle cx="110" cy="55" r="3" fill="#10b981" />
-                <circle cx="185" cy="30" r="3" fill="#ef4444" />
-              </svg>
-            </div>
-          </div>
-        </div>
-      </div>
-      <div className="h-2 rounded-b-xl bg-slate-700 shadow-xl" />
-      <div className="mx-auto h-1 w-1/4 rounded-b bg-slate-800" />
-    </div>
-  );
-}
-
-function PhoneMock() {
-  return (
-    <div className="absolute right-0 bottom-0 w-[150px] rounded-[20px] border-4 border-slate-800 bg-[#0B1526] shadow-2xl overflow-hidden">
-      <div className="flex items-center justify-between px-3 py-2 border-b border-white/5">
-        <span className="text-[8px] font-semibold text-slate-300">Asset Details</span>
-        <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
-      </div>
-      <div className="p-3">
-        <p className="text-[11px] font-black text-white">Truck 105</p>
-        <span className="text-[7px] font-semibold text-emerald-400">● Moving</span>
-        <div className="my-2 h-16 rounded-md bg-[#0d1a30]"
-          style={{ backgroundImage: 'radial-gradient(rgba(96,165,250,0.25) 0.8px, transparent 0.8px)', backgroundSize: '9px 9px' }}>
-          <svg viewBox="0 0 130 64" className="h-full w-full" fill="none">
-            <path d="M15 50 Q45 15 75 40 T120 20" stroke="#f59e0b" strokeWidth="1.2" strokeDasharray="2.5 2.5" />
-          </svg>
-        </div>
+    <div>
+      <div className="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
         {[
-          { l: 'Location', v: '7.2 km', c: 'text-slate-300' },
-          { l: 'Speed',    v: '68 km/h', c: 'text-blue-400' },
-          { l: 'Fuel',     v: '58%',     c: 'text-emerald-400' },
-          { l: 'Engine',   v: '1,236 h', c: 'text-amber-400' },
-        ].map((r) => (
-          <div key={r.l} className="flex items-center justify-between py-1 border-b border-white/5 last:border-0">
-            <span className="text-[7px] text-slate-500">{r.l}</span>
-            <span className={cn('text-[8px] font-bold', r.c)}>{r.v}</span>
+          { l: 'Total Devices', v: '2,635', c: 'text-white' },
+          { l: 'Moving',        v: '1,983', c: 'text-emerald-400' },
+          { l: 'Stopped',       v: '312',   c: 'text-amber-400' },
+          { l: 'Alerts',        v: '23',    c: 'text-red-400' },
+        ].map((k) => (
+          <div key={k.l} className="rounded-xl border border-white/6 p-4" style={{ backgroundColor: PANEL2 }}>
+            <p className="text-[11px] font-semibold text-slate-500">{k.l}</p>
+            <p className={cn('mt-1.5 text-2xl font-black', k.c)}>{k.v}</p>
           </div>
         ))}
       </div>
+      <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+        <div className="rounded-xl border border-white/6 p-4" style={{ backgroundColor: PANEL2 }}>
+          <p className="mb-3 text-[12px] font-bold text-slate-300">Fleet Utilisation</p>
+          {[['VTS Devices', 88, 'bg-blue-500'], ['ELK Devices', 74, 'bg-violet-500'], ['Sensors Online', 96, 'bg-emerald-400']].map(([l, p, c]) => (
+            <div key={l} className="mb-3 last:mb-0">
+              <div className="mb-1.5 flex justify-between text-[11px] text-slate-400"><span>{l}</span><span className="font-bold text-white">{p}%</span></div>
+              <div className="h-1.5 rounded-full bg-white/8"><div className={cn('h-1.5 rounded-full', c)} style={{ width: `${p}%` }} /></div>
+            </div>
+          ))}
+        </div>
+        <div className="rounded-xl border border-white/6 p-4" style={{ backgroundColor: PANEL2 }}>
+          <p className="mb-3 text-[12px] font-bold text-slate-300">Live Vehicles</p>
+          {[['KA01AB1234', 'Running', '62 km/h', 'text-emerald-400'], ['KA05CD5678', 'Idle', '0 km/h', 'text-amber-400'], ['HR265890', 'Stopped', '0 km/h', 'text-slate-400']].map(([v, s, sp, c]) => (
+            <div key={v} className="flex items-center justify-between border-b border-white/5 py-2.5 last:border-0">
+              <span className="text-[12px] font-bold text-white">{v}</span>
+              <span className={cn('text-[11px] font-bold', c)}>{s}</span>
+              <span className="text-[11px] text-slate-500">{sp}</span>
+            </div>
+          ))}
+        </div>
+      </div>
     </div>
   );
 }
 
-/* ══════════════════════════════ TRUSTED BY ══════════════════════════════ */
-function TrustedBy() {
+function MockTracking() {
   return (
-    <section className="bg-slate-50 py-11">
-      <div className="mx-auto max-w-[1180px] px-6">
-        <p className="mb-8 text-center text-[11px] font-bold uppercase tracking-[0.22em] text-slate-400">
-          Trusted by Businesses Worldwide
-        </p>
-        <div className="flex flex-wrap items-center justify-center gap-x-14 gap-y-6">
-          {TRUSTED.map((n) => (
-            <span key={n} className="text-[22px] font-black tracking-tight text-slate-300 grayscale transition hover:text-slate-400">
-              {n}
-            </span>
-          ))}
-        </div>
-      </div>
-    </section>
-  );
-}
-
-/* ══════════════════════════════ SOLUTIONS ══════════════════════════════ */
-function Solutions() {
-  return (
-    <section className="bg-white py-24">
-      <div className="mx-auto max-w-[1180px] px-6">
-        <div className="mb-14 text-center">
-          <h2 className="text-[34px] font-black tracking-tight text-slate-900">
-            Powerful Solutions for Every Need
-          </h2>
-          <p className="mt-3 text-[16px] text-slate-500">
-            From asset tracking to advanced analytics, Auspre helps you stay ahead.
-          </p>
-        </div>
-
-        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
-          {SOLUTIONS.map((s) => (
-            <div
-              key={s.title}
-              className="group rounded-2xl border border-slate-200/80 bg-white p-3 transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_20px_40px_-16px_rgba(15,23,42,0.2)]"
-            >
-              {/* icon chip */}
-              <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-xl border border-slate-100 bg-white shadow-sm">
-                <s.icon size={19} className="text-brand-gold" />
-              </div>
-              {/* real image */}
-              <div className="relative mb-4 h-40 overflow-hidden rounded-xl bg-slate-100">
-                <img
-                  src={s.img}
-                  alt={s.title}
-                  loading="lazy"
-                  className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-slate-900/25 to-transparent" />
-              </div>
-              <div className="px-2 pb-2">
-                <h3 className="text-[16px] font-bold text-slate-900">{s.title}</h3>
-                <p className="mt-1.5 text-[13px] leading-relaxed text-slate-500">{s.desc}</p>
-                <button className="mt-4 flex items-center gap-1.5 text-[13px] font-bold text-brand-gold transition-all group-hover:gap-2.5">
-                  Learn more <ArrowRight size={14} />
-                </button>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-    </section>
-  );
-}
-
-/* ═══════════════════════════════ WHY ═══════════════════════════════════ */
-function WhyAuspre() {
-  return (
-    <section className="bg-blue-50/40 py-24">
-      <div className="mx-auto max-w-[1180px] px-6">
-        <h2 className="mb-16 text-center text-[34px] font-black tracking-tight text-slate-900">
-          Why Eyeoty?
-        </h2>
-        <div className="grid grid-cols-2 gap-x-6 gap-y-12 md:grid-cols-3 lg:grid-cols-5">
-          {WHY_ITEMS.map((item, i) => (
-            <div key={item.title} className="relative text-center">
-              {i > 0 && <span className="absolute -left-3 top-2 hidden h-24 w-px bg-slate-200 lg:block" />}
-              <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full text-slate-700">
-                <item.icon size={26} strokeWidth={1.6} />
-              </div>
-              <h3 className="mb-2 text-[14.5px] font-bold text-slate-900">{item.title}</h3>
-              <p className="text-[12.5px] leading-relaxed text-slate-500">{item.desc}</p>
-            </div>
-          ))}
-        </div>
-      </div>
-    </section>
-  );
-}
-
-/* ═══════════════════════════════ CTA ═══════════════════════════════════ */
-function CtaBanner({ onLogin }) {
-  return (
-    <section className="bg-white px-6 py-14">
-      <div className="mx-auto max-w-[1180px]">
-        <div className="flex flex-col items-center justify-between gap-8 rounded-2xl bg-sidebar px-10 py-12 md:flex-row">
-          <div className="flex items-center gap-6 text-center md:text-left">
-            <div className="hidden h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-brand-gold/15 sm:flex">
-              <Radio size={30} className="text-brand-gold" />
-            </div>
-            <div>
-              <h3 className="text-[26px] font-black leading-tight text-white">
-                Ready to take control<br className="hidden sm:block" /> of your operations?
-              </h3>
-              <p className="mt-2 text-[15px] text-slate-400">
-                Discover how Auspre can transform your business.
-              </p>
-            </div>
+    <div className="grid grid-cols-1 gap-3 lg:grid-cols-[240px_1fr]">
+      <div className="rounded-xl border border-white/6 p-3" style={{ backgroundColor: PANEL2 }}>
+        <p className="mb-2 px-1 text-[12px] font-bold text-slate-300">Devices</p>
+        {[['KA01AB1234', 'Running', 'bg-emerald-400'], ['KA05CD5678', 'Idle', 'bg-amber-400'], ['HS001234', 'Stopped', 'bg-slate-500']].map(([v, s, dot], i) => (
+          <div key={v} className={cn('flex items-center gap-2.5 rounded-lg px-2.5 py-2.5', i === 0 && 'bg-brand-gold/10 ring-1 ring-brand-gold/30')}>
+            <span className={cn('h-2 w-2 rounded-full', dot)} />
+            <div className="flex-1"><p className="text-[12px] font-bold text-white">{v}</p><p className="text-[10px] text-slate-500">{s}</p></div>
           </div>
-          <button
-            onClick={onLogin}
-            className="flex shrink-0 items-center gap-2 rounded-lg bg-brand-gold px-7 py-3.5 text-[14.5px] font-bold text-white shadow-lg transition hover:-translate-y-0.5 hover:bg-amber-500"
-          >
-            Request a Demo <ArrowRight size={16} />
-          </button>
+        ))}
+      </div>
+      <div className="relative h-[260px] overflow-hidden rounded-xl border border-white/6" style={{ backgroundColor: PANEL2, backgroundImage: 'radial-gradient(rgba(96,165,250,0.25) 1px, transparent 1px)', backgroundSize: '18px 18px' }}>
+        <svg className="absolute inset-0 h-full w-full" viewBox="0 0 600 260" fill="none">
+          <path d="M60 210 Q180 60 320 150 T560 80" stroke="#D29A4A" strokeWidth="2.5" strokeDasharray="6 6" opacity="0.9" />
+          <circle cx="60" cy="210" r="6" fill="#3b82f6" />
+          <circle cx="560" cy="80" r="6" fill="#ef4444" />
+        </svg>
+        <div className="anim-pulse absolute left-[52%] top-[55%] h-4 w-4 rounded-full bg-brand-gold shadow-[0_0_18px_rgba(210,154,74,0.9)]" style={{ animation: 'pulseDot 1.8s ease-in-out infinite' }} />
+        <div className="absolute bottom-3 left-3 flex items-center gap-3 rounded-lg border border-white/8 bg-[#0B1526]/90 px-3 py-2 backdrop-blur">
+          <MapPin size={13} className="text-brand-gold" />
+          <span className="text-[11px] font-bold text-white">KA01AB1234</span>
+          <span className="text-[11px] font-bold text-emerald-400">62 km/h</span>
+          <Bell size={12} className="text-slate-500" />
         </div>
       </div>
-    </section>
+    </div>
   );
 }
 
-/* ═════════════════════════════════ FOOTER ═════════════════════════════════ */
-function Footer() {
-  const COLS = [
-    { title: 'Solutions',  links: ['Tracking', 'Sensors', 'Fleet', 'Analytics'] },
-    { title: 'Industries', links: ['Logistics', 'Transportation', 'Healthcare', 'Construction', 'Retail'] },
-    { title: 'Resources',  links: ['Blog', 'Case Studies', 'Whitepapers', 'Support'] },
-    { title: 'Company',    links: ['About Us', 'Careers', 'Partners', 'Contact Us'] },
-  ];
+function MockLoadCell() {
   return (
-    <footer className="bg-sidebar px-6 pt-16 pb-8">
-      <div className="mx-auto max-w-[1180px]">
-        <div className="grid grid-cols-2 gap-10 md:grid-cols-6">
-          <div className="col-span-2">
-            <div className="scale-[0.2] origin-left">
-              <Logo />
-            </div>
-            <p className="mt-4 max-w-[240px] text-[13px] leading-relaxed text-slate-400">
-              Auspre is an IoT platform providing tracking, sensor monitoring, fleet
-              management and analytics solutions to businesses worldwide.
-            </p>
-            <div className="mt-5 flex gap-2.5">
-              {['in', 'f', 'yt'].map((s) => (
-                <button key={s} className="flex h-8 w-8 items-center justify-center rounded-md border border-white/10 text-[11px] font-bold text-slate-400 transition hover:bg-white/5 hover:text-white">
-                  {s}
-                </button>
-              ))}
-            </div>
+    <div>
+      <div className="mb-4 flex flex-wrap items-center gap-3">
+        {[['Avg Load', '84.2 T', 'text-brand-gold'], ['Load %', '71.4%', 'text-violet-400'], ['Status', 'Moderate', 'text-emerald-400']].map(([l, v, c]) => (
+          <div key={l} className="rounded-lg border border-white/8 px-4 py-2" style={{ backgroundColor: PANEL2 }}>
+            <span className="mr-2 text-[11px] text-slate-500">{l}</span><span className={cn('text-[13px] font-black', c)}>{v}</span>
           </div>
-          {COLS.map((col) => (
-            <div key={col.title}>
-              <h4 className="mb-4 text-[13px] font-bold text-white">{col.title}</h4>
-              <ul className="space-y-2.5">
-                {col.links.map((l) => (
-                  <li key={l}>
-                    <button className="text-[13px] text-slate-400 transition hover:text-white">{l}</button>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ))}
-        </div>
-        <div className="mt-14 flex flex-col items-center justify-between gap-3 border-t border-white/10 pt-6 sm:flex-row">
-          <p className="text-[12.5px] text-slate-500">© 2024 Auspre. All rights reserved.</p>
-          <div className="flex gap-6">
-            <button className="text-[12.5px] text-slate-500 transition hover:text-white">Privacy Policy</button>
-            <button className="text-[12.5px] text-slate-500 transition hover:text-white">Terms of Service</button>
-          </div>
+        ))}
+      </div>
+      <div className="relative h-[220px] overflow-hidden rounded-xl border border-white/6 p-4" style={{ backgroundColor: PANEL2 }}>
+        <svg className="h-full w-full" viewBox="0 0 600 180" preserveAspectRatio="none" fill="none">
+          <defs>
+            <linearGradient id="goldFill" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="#D29A4A" stopOpacity="0.35" />
+              <stop offset="100%" stopColor="#D29A4A" stopOpacity="0" />
+            </linearGradient>
+          </defs>
+          {[40, 80, 120].map((y) => <line key={y} x1="0" y1={y} x2="600" y2={y} stroke="rgba(255,255,255,0.05)" />)}
+          <path d="M0 130 C 60 90, 110 140, 170 100 S 290 60, 350 95 S 470 140, 530 90 L 600 110 L 600 180 L 0 180 Z" fill="url(#goldFill)" />
+          <path d="M0 130 C 60 90, 110 140, 170 100 S 290 60, 350 95 S 470 140, 530 90 L 600 110" stroke="#D29A4A" strokeWidth="2.5" />
+          <path d="M0 150 C 80 120, 140 155, 210 130 S 330 100, 400 125 S 520 150, 600 120" stroke="#8b5cf6" strokeWidth="1.8" opacity="0.8" />
+        </svg>
+        <div className="absolute right-4 top-4 flex gap-4 text-[11px] font-bold">
+          <span className="flex items-center gap-1.5 text-slate-300"><span className="h-2 w-2 rounded-full bg-brand-gold" /> Average</span>
+          <span className="flex items-center gap-1.5 text-slate-300"><span className="h-2 w-2 rounded-full bg-violet-500" /> Load %</span>
         </div>
       </div>
-    </footer>
+    </div>
   );
 }
 
-/* ══════════════════════════════ MAIN ══════════════════════════════════ */
+/* ─────────────────────────── PAGE ──────────────────────────────────── */
 export default function LandingPage() {
-  const [showLogin, setShowLogin] = useState(false);
-  const open  = () => setShowLogin(true);
-  const close = () => setShowLogin(false);
+  const navigate = useNavigate();
+  const location = useLocation();
+  const showLogin = location.pathname === PATHS.LOGIN;
+
+  const open  = () => navigate(PATHS.LOGIN);
+  const close = () => navigate('/', { replace: true });
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen text-white antialiased" style={{ backgroundColor: BG }}>
+      <style>{KEYFRAMES}</style>
       <LoginModal open={showLogin} onClose={close} />
-      <Nav       onLogin={open} />
-      <Hero      onLogin={open} />
-      <TrustedBy />
-      <Solutions />
-      <WhyAuspre />
-      <CtaBanner onLogin={open} />
+      <Nav            onLogin={open} />
+      <Hero           onLogin={open} />
+      <StatsBand />
+      <ModuleCards    onLogin={open} />
+      <IndustryTabs />
+      <PlatformPreview />
+      <CtaBanner      onLogin={open} />
       <Footer />
     </div>
   );
