@@ -65,13 +65,14 @@ export default function LoginModal({ open, onClose }) {
             onClick={onClose}
           />
 
-          {/* Modal card */}
+          {/* Modal card — explicitly resets text color so it never inherits
+              the dark-page "text-white" set on the LandingPage root wrapper */}
           <motion.div
             initial={{ opacity: 0, scale: 0.95, y: 16 }}
             animate={{ opacity: 1, scale: 1,    y: 0  }}
             exit={{    opacity: 0, scale: 0.95, y: 16 }}
             transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
-            className="relative z-10 w-full max-w-md"
+            className="relative z-10 w-full max-w-md text-slate-900"
           >
             <div className="rounded-[28px] border border-white/60 bg-white p-10 shadow-[0_32px_80px_rgba(15,23,42,.28)]">
               {/* Close */}
@@ -111,7 +112,7 @@ export default function LoginModal({ open, onClose }) {
                     required
                     autoFocus
                     autoComplete="username"
-                    className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3.5 text-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
+                    className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3.5 text-sm text-slate-900 caret-slate-900 outline-none transition placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/20"
                   />
                 </div>
 
@@ -126,7 +127,7 @@ export default function LoginModal({ open, onClose }) {
                       placeholder="Enter your password"
                       required
                       autoComplete="current-password"
-                      className="w-full rounded-2xl border border-slate-200 bg-slate-50 py-3.5 pl-4 pr-12 text-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
+                      className="w-full rounded-2xl border border-slate-200 bg-slate-50 py-3.5 pl-4 pr-12 text-sm text-slate-900 caret-slate-900 outline-none transition placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/20"
                     />
                     <button
                       type="button"
