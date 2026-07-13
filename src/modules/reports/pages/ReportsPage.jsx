@@ -7,6 +7,7 @@ import HourlyReportPage from "./HourlyReportPage";
 import TrackPlayPage from "./TrackPlayPage";
 import StoppageReportPage from "./StoppageReportPage";
 import OverspeedReportPage from "./OverspeedReportPage";
+import FuelTheftReportPage from "./FuelTheftReportPage";
 import { PATHS } from "@/constants";
 
 const REPORT_TYPES = [
@@ -23,6 +24,11 @@ const REPORT_TYPES = [
   { id: "trackplay", name: "Track Play", desc: "Historical route playback" },
   { id: "speed", name: "Overspeed Report", desc: "Violations by vehicle" },
   { id: "stoppage", name: "Stoppage Report", desc: "Stop duration & location" },
+  {
+    id: "fuel-theft",
+    name: "Fuel Theft Report",
+    desc: "Detect sudden analog sensor drops",
+  },
   {
     id: "load-cell",
     name: "Load Cell Report",
@@ -42,6 +48,7 @@ const INLINE_PAGES = {
   trackplay: TrackPlayPage,
   speed: OverspeedReportPage,
   stoppage: StoppageReportPage,
+  "fuel-theft": FuelTheftReportPage,
 };
 
 // Reports that have their own dedicated routes — navigate there directly
