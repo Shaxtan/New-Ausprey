@@ -1,20 +1,22 @@
-import newlogo from "../../assets/new logo.png";
+import { cn } from '@/utils';
+import fulllogo from '@/assets/new logo.png';
+import smalllogo from '@/assets/small logo.png';
 
 export function Logo({ compact = false }) {
   return (
     <div
-      className={`eyeoty-logo ${
-        compact ? "eyeoty-logo--compact" : "eyeoty-logo--expanded"
-      }`}
+      className={cn(
+        'eyeoty-logo',
+        compact ? 'eyeoty-logo--compact' : 'eyeoty-logo--expanded'
+      )}
     >
       <img
-        src={newlogo}
-        alt="EyeOTY Logo"
-        className={`eyeoty-logo__image ${
-          compact
-            ? "eyeoty-logo__image--compact"
-            : "eyeoty-logo__image--expanded"
-        }`}
+        src={compact ? smalllogo : fulllogo}
+        alt="Eyeoty logo"
+        className={cn(
+          'eyeoty-logo__image',
+          compact ? 'eyeoty-logo__image--compact' : 'eyeoty-logo__image--expanded'
+        )}
       />
     </div>
   );
