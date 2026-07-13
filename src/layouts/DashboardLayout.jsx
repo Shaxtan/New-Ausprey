@@ -7,6 +7,7 @@ import { PageLoader } from "@/components/ui";
 import { useAccountStore } from "@/store";
 import { FleetChatWidget } from "@/modules/chat/FleetChatWidget";
 import { ActionExecutor } from "@/modules/chat/ActionExecutor";
+import { CommandPalette } from "@/components/common/CommandPalette";
 
 export function DashboardLayout() {
   const location = useLocation();
@@ -41,6 +42,8 @@ export function DashboardLayout() {
       <FleetChatWidget />
       {/* Executes actions dispatched by the chat assistant */}
       <ActionExecutor />
+      {/* Global ⌘K command palette */}
+      <CommandPalette />
     </div>
   );
 }

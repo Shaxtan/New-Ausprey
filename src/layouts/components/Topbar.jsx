@@ -17,6 +17,7 @@ import {
   Clock,
 } from "lucide-react";
 import { useUIStore, useAuthStore, useAccountStore } from "@/store";
+import { useCommandPaletteStore } from "@/store/useCommandPaletteStore";
 import { useQueryClient } from "@tanstack/react-query";
 import { Avatar } from "@/components/ui";
 import { PATHS } from "@/constants/paths";
@@ -432,18 +433,21 @@ export function Topbar() {
         <AccountSelector />
       </div>
 
-      {/* ── Search bar (takes remaining space) ── */}
+      {/* ── Search bar (takes remaining space) — opens the ⌘K command palette ── */}
       <div className="flex-1 hidden md:block max-w-sm lg:max-w-md">
-        <div className="relative">
-          <Search
-            size={15}
-            className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"
-          />
-          <input
-            placeholder="Search vehicles, trips, alerts..."
-            className="w-full pl-10 pr-4 py-2.5 text-sm rounded-xl border border-slate-200 bg-slate-50 text-slate-700 placeholder-slate-400 outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition"
-          />
-        </div>
+        <button
+          type="button"
+          onClick={() => useCommandPaletteStore.getState().toggle()}
+          className="w-full flex items-center gap-2.5 pl-3.5 pr-3 py-2.5 text-sm rounded-xl border border-slate-200 bg-slate-50 text-slate-400 hover:border-primary/40 hover:bg-white transition text-left"
+        >
+          <Search size={15} className="shrink-0" />
+          <span className="flex-1 truncate">
+            Search pages, reports, vehicles…
+          </span>
+          <kbd className="hidden lg:inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[10px] font-semibold text-slate-400 bg-white rounded border border-slate-200 shrink-0">
+            ⌘K
+          </kbd>
+        </button>
       </div>
 
       {/* ── Right actions ── */}
