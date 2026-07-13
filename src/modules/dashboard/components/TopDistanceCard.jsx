@@ -14,13 +14,7 @@ import { PATHS } from "@/constants";
 import { formatNumber } from "@/utils";
 
 // Progressively lighter blues per rank
-const BAR_COLORS = [
-  "#1A73E8",
-  "#2e7eed",
-  "#4a8ff2",
-  "#6aa4f5",
-  "#8bb9f8",
-];
+const BAR_COLORS = ["#1A73E8", "#2e7eed", "#4a8ff2", "#6aa4f5", "#8bb9f8"];
 
 export function TopDistanceCard({ data = [], loading }) {
   const navigate = useNavigate();
@@ -31,10 +25,7 @@ export function TopDistanceCard({ data = [], loading }) {
   }));
 
   return (
-    <Card
-      hover
-      className="h-[390px] flex flex-col"
-    >
+    <Card hover className="h-[390px] flex flex-col">
       <CardHeader
         title="Top by Distance"
         subtitle="Today — by sub-account"
@@ -52,18 +43,12 @@ export function TopDistanceCard({ data = [], loading }) {
         {loading ? (
           <div className="space-y-2 mt-2">
             {Array.from({ length: 5 }).map((_, i) => (
-              <Skeleton
-                key={i}
-                className="h-7 w-full rounded-lg"
-              />
+              <Skeleton key={i} className="h-7 w-full rounded-lg" />
             ))}
           </div>
         ) : data.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-6 text-slate-400">
-            <Route
-              size={24}
-              className="mb-2 text-slate-300"
-            />
+            <Route size={24} className="mb-2 text-slate-300" />
             <p className="text-xs text-center">
               No distance data for today yet.
             </p>
@@ -87,7 +72,7 @@ export function TopDistanceCard({ data = [], loading }) {
                 >
                   <span className="flex items-center gap-2 min-w-0">
                     <span
-                      className="w-5 h-5 rounded-md text-[10px] font-bold text-white flex items-center justify-center shrink-0"
+                      className="w-6 h-6 rounded-full text-[11px] font-bold text-white flex items-center justify-center shrink-0 shadow-sm"
                       style={{
                         background: BAR_COLORS[i] ?? "#8bb9f8",
                       }}

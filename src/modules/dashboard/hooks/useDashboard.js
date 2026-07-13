@@ -81,6 +81,87 @@ export const useTopDistanceDevices = (topN = 5) => {
   });
 };
 
+// Recursively collect real fleet accounts (leaf nodes) from an account-summary tree.
+// Shared by useTopDistanceDevices and useFleetUtilization.
+const collectLeafAccounts = (node) => {
+  if (!node) return [];
+  const children = node.childAccounts ?? [];
+  if (children.length === 0) return [node];
+  return children.flatMap(collectLeafAccounts);
+};
+
+const DAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+/**
+ * Fleet utilization over the last 7 days — % of fleet accounts that moved
+ * (totalDistance > 0) each day, derived from getAccountSummaryReport.
+ * Used by the dashboard's Fleet Utilization trend chart.
+ */
+export const useFleetUtilization = () => {
+  const accid = useAccountStore((s) => s.selectedAccount?.id);
+  return useQuery({
+    queryKey: [KEY, "utilization", accid],
+    enabled: accid != null,
+    staleTime: REFRESH_MS,
+    refetchInterval: REFRESH_MS,
+    queryFn: async () => {
+      const days = Array.from({ length: 7 }, (_, i) => {
+        const d = new Date();
+        d.setDate(d.getDate() - (6 - i));
+        return d;
+      });
+
+      const results = await Promise.all(
+        days.map(async (d) => {
+          const apiDate = toApiDate(toLocalYmd(d));
+          try {
+            const res = await apiService.getAccountSummaryReport(
+              apiDate,
+              apiDate,
+              accid ?? 1,
+            );
+            const body = res?.data;
+            if (body?.resultCode !== 1)
+              return { day: d, pct: 0, active: 0, total: 0 };
+
+            const root = Array.isArray(body.data) ? body.data[0] : null;
+            const leaves = collectLeafAccounts(root);
+            const total = leaves.length;
+            const active = leaves.filter(
+              (a) => Number(a.totalDistance ?? 0) > 0,
+            ).length;
+            const pct = total > 0 ? Math.round((active / total) * 100) : 0;
+            return { day: d, pct, active, total };
+          } catch {
+            return { day: d, pct: 0, active: 0, total: 0 };
+          }
+        }),
+      );
+
+      const points = results.map((r) => ({
+        name: DAY_LABELS[r.day.getDay()],
+        utilization: r.pct,
+      }));
+
+      const avg = points.length
+        ? Math.round(
+            points.reduce((s, p) => s + p.utilization, 0) / points.length,
+          )
+        : 0;
+
+      // Trend: compare last point to the average of the first half
+      const half = Math.floor(points.length / 2) || 1;
+      const earlyAvg =
+        points.slice(0, half).reduce((s, p) => s + p.utilization, 0) / half;
+      const latest = points[points.length - 1]?.utilization ?? 0;
+      const trend =
+        earlyAvg > 0 ? Math.round(((latest - earlyAvg) / earlyAvg) * 100) : 0;
+
+      return { points, avg, trend };
+    },
+  });
+};
+
 /** Alerts (summary + full list) from /alerts/db-alerts. Auto-refreshes every 5 min. */
 export const useDashboardAlerts = () => {
   const accid = useAccountStore((s) => s.selectedAccount?.id);
