@@ -1,6 +1,14 @@
 import { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { LogIn, Eye, EyeOff, AlertCircle } from "lucide-react";
+import {
+  LogIn,
+  Eye,
+  EyeOff,
+  AlertCircle,
+  ShieldCheck,
+  ArrowRight,
+} from "lucide-react";
+
 import { Button } from "@/components/ui";
 import { TextField } from "@/components/forms";
 import { useAuthStore } from "@/store";
@@ -11,27 +19,45 @@ import { AuthLayout } from "../components/AuthLayout";
 export default function LoginPage() {
   const navigate = useNavigate();
   const location = useLocation();
-  const login = useAuthStore((s) => s.login);
 
-  const [form, setForm] = useState({ identifier: "", password: "" });
-  const [showPw, setShowPw] = useState(false);
-  const [error, setError] = useState("");
+  const login = useAuthStore((state) => state.login);
+
+  const [form, setForm] = useState({
+    identifier: "",
+    password: "",
+  });
+
+  const [showPassword, setShowPassword] = useState(false);
+  const [rememberMe, setRememberMe] = useState(true);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
-  const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
+  const handleChange = (key) => (event) => {
+    setForm((prev) => ({
+      ...prev,
+      [key]: event.target.value,
+    }));
+  };
 
-  const submit = async (e) => {
-    e.preventDefault();
-    setError("");
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+
     setLoading(true);
+    setError("");
+
     try {
       const { user, token } = await authService.login(form);
-      login({ user, token });
+
+      login({
+        user,
+        token,
+      });
+
       navigate(location.state?.from?.pathname ?? PATHS.DASHBOARD, {
         replace: true,
       });
     } catch (err) {
-      setError(err?.message ?? "Unable to sign in.");
+      setError(err?.message || "Unable to sign in.");
     } finally {
       setLoading(false);
     }
@@ -39,82 +65,213 @@ export default function LoginPage() {
 
   return (
     <AuthLayout
-      title="Welcome back"
-      subtitle="Sign in to your Auspre fleet workspace."
+      title="Welcome Back"
+      subtitle="Sign in to continue to your EyeOTY Fleet Platform."
       footer={
         <>
-          Don't have an account?
+          Don't have an account?{" "}
           <Link
             to={PATHS.SIGNUP}
-            className="font-semibold text-primary hover:underline"
+            className="font-semibold text-blue-600 hover:text-blue-700 transition"
           >
-            Create one
+            Create Account
           </Link>
         </>
       }
     >
-      <form onSubmit={submit} className="space-y-4">
+      <form
+        onSubmit={handleSubmit}
+        className="space-y-6"
+      >
         {error && (
-          <div className="flex items-center gap-2 text-sm text-rose-600 bg-rose-50 border border-rose-100 rounded-lg px-3 py-2.5">
-            <AlertCircle size={16} className="shrink-0" /> {error}
+          <div className="flex items-center gap-3 rounded-2xl border border-red-200 bg-red-50 p-4 text-red-700 shadow-sm">
+            <AlertCircle size={20} />
+            <span className="text-sm font-medium">{error}</span>
           </div>
         )}
 
-        {/* Accepts both username and e-mail */}
         <TextField
           label="Username or Email"
+          placeholder="Enter your username or email"
           type="text"
           required
-          placeholder="username or you@company.com"
-          value={form.identifier}
-          onChange={set("identifier")}
           autoComplete="username"
+          value={form.identifier}
+          onChange={handleChange("identifier")}
         />
 
         <div className="relative">
           <TextField
             label="Password"
-            type={showPw ? "text" : "password"}
+            placeholder="Enter your password"
+            type={showPassword ? "text" : "password"}
             required
-            placeholder="••••••••"
-            value={form.password}
-            onChange={set("password")}
             autoComplete="current-password"
+            value={form.password}
+            onChange={handleChange("password")}
           />
+
           <button
             type="button"
-            onClick={() => setShowPw((v) => !v)}
-            className="absolute right-3 top-[34px] text-slate-400 hover:text-slate-600"
+            onClick={() => setShowPassword((prev) => !prev)}
+            className="absolute right-4 top-[42px] text-slate-400 transition hover:text-blue-600"
           >
-            {showPw ? <EyeOff size={16} /> : <Eye size={16} />}
+            {showPassword ? (
+              <EyeOff size={20} />
+            ) : (
+              <Eye size={20} />
+            )}
           </button>
         </div>
+                <div className="flex items-center justify-between">
 
-        <div className="flex items-center justify-between text-sm">
-          <label className="flex items-center gap-2 text-slate-600 cursor-pointer select-none">
+          <label className="flex items-center gap-3 cursor-pointer select-none">
+
             <input
               type="checkbox"
-              className="rounded border-slate-300 text-primary focus:ring-primary"
-            />{" "}
-            Remember me
+              checked={rememberMe}
+              onChange={() => setRememberMe(!rememberMe)}
+              className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+            />
+
+            <span className="text-sm text-slate-600">
+              Remember me
+            </span>
+
           </label>
+
           <button
             type="button"
-            className="font-semibold text-primary hover:underline"
+            className="text-sm font-semibold text-blue-600 hover:text-blue-700 transition"
           >
-            Forgot password?
+            Forgot Password?
           </button>
+
         </div>
 
         <Button
           type="submit"
           size="lg"
-          icon={LogIn}
           disabled={loading}
-          className="w-full"
+          className="
+            w-full
+            h-14
+            rounded-2xl
+            bg-gradient-to-r
+            from-blue-600
+            to-cyan-500
+            hover:from-blue-700
+            hover:to-cyan-600
+            shadow-xl
+            shadow-blue-500/20
+            transition-all
+            duration-300
+            hover:-translate-y-0.5
+            text-base
+            font-semibold
+          "
         >
-          {loading ? "Signing in…" : "Sign in"}
+          <div className="flex items-center justify-center gap-2">
+
+            {loading ? (
+
+              <>
+                <svg
+                  className="h-5 w-5 animate-spin"
+                  xmlns="http://www.w3.org/2000/svg"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                >
+                  <circle
+                    className="opacity-20"
+                    cx="12"
+                    cy="12"
+                    r="10"
+                    stroke="currentColor"
+                    strokeWidth="4"
+                  />
+
+                  <path
+                    className="opacity-100"
+                    fill="currentColor"
+                    d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"
+                  />
+                </svg>
+
+                Signing In...
+
+              </>
+
+            ) : (
+
+              <>
+
+                <LogIn size={20} />
+
+                Sign In
+
+                <ArrowRight size={18} />
+
+              </>
+
+            )}
+
+          </div>
+
         </Button>
+
+        <div className="relative py-2">
+
+          <div className="absolute inset-0 flex items-center">
+
+            <div className="w-full border-t border-slate-200" />
+
+          </div>
+
+          <div className="relative flex justify-center">
+
+            <span className="bg-white px-4 text-xs uppercase tracking-wider text-slate-400">
+
+              Secure Login
+
+            </span>
+
+          </div>
+
+        </div>
+
+        <div className="rounded-2xl border border-emerald-100 bg-emerald-50 p-4">
+
+          <div className="flex items-start gap-3">
+
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-500 text-white">
+
+              <ShieldCheck size={18} />
+
+            </div>
+
+            <div>
+
+              <h4 className="font-semibold text-slate-800">
+
+                Enterprise Grade Security
+
+              </h4>
+
+              <p className="mt-1 text-sm leading-6 text-slate-500">
+
+                Your account is protected using encrypted authentication,
+                secure session management and enterprise-grade security
+                standards.
+
+              </p>
+
+            </div>
+
+          </div>
+
+        </div>
+
       </form>
     </AuthLayout>
   );
