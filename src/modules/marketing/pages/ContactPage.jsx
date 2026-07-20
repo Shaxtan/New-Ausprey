@@ -5,8 +5,8 @@ import { Mail, Phone, MapPin, ArrowRight, CheckCircle2 } from 'lucide-react';
 import { Nav, Footer, PageHero, BG, PANEL, PANEL2, KEYFRAMES, fadeUp } from '../shared';
 
 const INFO = [
-  { icon: Mail,   title: 'Email',  value: 'hello@eyeoty.com' },
-  { icon: Phone,  title: 'Phone',  value: '+91 98765 43210' },
+  { icon: Mail,   title: 'Email',  value: 'info@auspreytech.com' },
+  { icon: Phone,  title: 'Phone',  value: '+91-124-5057262' },
   { icon: MapPin, title: 'Office', value: 'Pune, Maharashtra, India' },
 ];
 
