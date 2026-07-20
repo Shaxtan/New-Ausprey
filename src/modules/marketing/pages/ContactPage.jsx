@@ -7,7 +7,7 @@ import { Nav, Footer, PageHero, BG, PANEL, PANEL2, KEYFRAMES, fadeUp } from '../
 const INFO = [
   { icon: Mail,   title: 'Email',  value: 'info@auspreytech.com' },
   { icon: Phone,  title: 'Phone',  value: '+91-124-5057262' },
-  { icon: MapPin, title: 'Office', value: 'Pune, Maharashtra, India' },
+  { icon: MapPin, title: 'Office', value: 'Gurgaon, India ' },
 ];
 
 export default function ContactPage() {
