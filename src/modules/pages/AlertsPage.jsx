@@ -3,22 +3,38 @@
  *
  * Real implementation against POST /usage/alerts/by-account.
  *
- * Adds, on top of the existing account/date-range filter + search that
- * already worked:
- *   - 5 KPI cards (Total / Critical / Acknowledged / Resolved / Repeat)
- *   - Live alert map + severity donut
- *   - Alert-categories bar chart + local response-status breakdown + a
- *     critical-alerts quick list
- *   - A full "All Alerts" table with status tabs, search, pagination,
- *     and per-row Acknowledge/Resolve actions
+ * Layout refactor (this version):
+ *   - Single KPI row: Total / Critical Open / Acknowledged / Resolved / SLA Breached
+ *   - 3-panel overview row: Live Map (expandable) / Severity Donut / Alert Performance
+ *     — all three locked to ROW1_HEIGHT so they always align, regardless of
+ *     what each underlying component naturally renders.
+ *   - Categories + Response Status + Critical Alerts row — same idea, locked
+ *     to ROW2_HEIGHT.
+ *   - Restyled "All Alerts" table: colored pill tabs, sort indicator, kebab actions
  *
  * IMPORTANT: severity is DERIVED from alert `type` (see utils/alertSeverity.js)
  * because the API doesn't return one. Acknowledge/Resolve status is tracked
  * LOCALLY in this browser (see hooks/useAlertTriage.js) because there is no
  * backend alert-workflow endpoint — this is surfaced honestly in the UI
  * rather than implied as server-synced.
+ *
+ * "SLA Breached" and the Alert Performance rate metrics (Acknowledgement /
+ * Resolution / Repeat / SLA Breach rate) are computed directly from real
+ * alert timestamps + the same local triage state — no fabricated historical
+ * data. Avg response/resolution TIME is intentionally NOT shown: computing
+ * it needs timestamped triage events, which useAlertTriage doesn't track yet.
+ * "Driver/Owner" and "Assigned To" are omitted from the table for the same
+ * reason — there's no such field on the alert payload.
+ *
+ * HEIGHT-ALIGNMENT TECHNIQUE:
+ * PanelShell (below) locks every card in a row to the same explicit pixel
+ * height via inline style + flex-col, with the header pinned at the top and
+ * content filling the rest. This guarantees identical outer box heights
+ * across a row even though AlertLiveMap / AlertSeverityDonut /
+ * AlertCategoriesChart / ResponseStatusCard / CriticalAlertsListCard are
+ * external components whose natural/internal heights aren't controlled here.
  */
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import {
   Search,
@@ -26,18 +42,21 @@ import {
   MapPin,
   Clock,
   AlertOctagon,
+  AlertTriangle,
   CheckCircle2,
   ShieldCheck,
   Repeat,
-  ExternalLink,
   Eye,
   Check,
   RotateCcw,
   ChevronLeft,
   ChevronRight,
+  MoreVertical,
+  Maximize2,
+  Minimize2,
 } from "lucide-react";
 import { PageHeader, KpiCard, ExportMenu, Trend } from "@/components/common";
-import { Card, CardHeader, Skeleton, Spinner, Tabs } from "@/components/ui";
+import { Card, CardHeader, Skeleton, Spinner } from "@/components/ui";
 import { exportCSV, exportExcel, exportPDF, formatNumber, cn } from "@/utils";
 import apiService from "@/services/apiService";
 import { useAccountStore } from "@/store";
@@ -82,6 +101,245 @@ const QUICK = [
 
 const PAGE_SIZES = [10, 25, 50];
 
+// Threshold-based, not a contractual SLA — "open longer than N minutes".
+const SLA_BREACH_MINUTES = 30;
+
+// ─── Row height constants — single source of truth for alignment ───────────
+const ROW1_HEIGHT = 430; // Live Map / Severity Donut / Alert Performance
+const ROW2_HEIGHT = 380; // Categories / Response Status / Critical Alerts
+const EXPANDED_MAP_HEIGHT = 560;
+
+// ─── PanelShell — locks a card to an exact height so every panel in a row ───
+// ─── aligns perfectly, regardless of the internal component's own height ───
+function PanelShell({ height, title, subtitle, action, scroll = false, children }) {
+  return (
+    <Card hover className="flex flex-col" style={{ height }}>
+      <div className="shrink-0 flex items-start justify-between gap-2">
+        <CardHeader title={title} subtitle={subtitle} />
+        {action}
+      </div>
+      <div
+        className="flex-1 min-h-0 mt-2"
+        style={{ overflow: scroll ? "auto" : "hidden" }}
+      >
+        {children}
+      </div>
+    </Card>
+  );
+}
+
+// ─── Small self-contained sparkline (no chart-lib dependency) ────────────────
+function Sparkline({ data, color = "#2563eb", height = 22 }) {
+  if (!data.length) {
+    return (
+      <div
+        style={{ height }}
+        className="flex items-center justify-center text-[9px] text-slate-300"
+      >
+        —
+      </div>
+    );
+  }
+  const max = Math.max(...data.map((d) => d.count), 1);
+  const w = 100;
+  const step = data.length > 1 ? w / (data.length - 1) : 0;
+  const points = data
+    .map(
+      (d, i) =>
+        `${i * step},${height - (d.count / max) * (height - 4) - 2}`,
+    )
+    .join(" ");
+  return (
+    <svg
+      viewBox={`0 0 ${w} ${height}`}
+      preserveAspectRatio="none"
+      className="w-full"
+      style={{ height }}
+    >
+      <polyline
+        points={points}
+        fill="none"
+        stroke={color}
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+// ─── Alert Performance panel content (real, computable metrics only) ────────
+function AlertPerformanceContent({
+  ackRate,
+  resolvedRate,
+  repeatRate,
+  slaBreachRate,
+  dailyVolume,
+}) {
+  const rows = [
+    {
+      icon: CheckCircle2,
+      color: "#2563eb",
+      label: "Acknowledgement Rate",
+      value: `${ackRate.toFixed(1)}%`,
+    },
+    {
+      icon: ShieldCheck,
+      color: "#16a34a",
+      label: "Resolution Rate",
+      value: `${resolvedRate.toFixed(1)}%`,
+    },
+    {
+      icon: Repeat,
+      color: "#d97706",
+      label: "Repeat Alert Rate",
+      value: `${repeatRate.toFixed(1)}%`,
+    },
+    {
+      icon: AlertTriangle,
+      color: "#e11d48",
+      label: "SLA Breach Rate",
+      value: `${slaBreachRate.toFixed(1)}%`,
+    },
+  ];
+  return (
+    <div className="h-full flex flex-col justify-between">
+      <div className="space-y-3.5">
+        {rows.map((r) => (
+          <div key={r.label} className="flex items-center gap-3">
+            <span
+              className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
+              style={{ background: `${r.color}1a` }}
+            >
+              <r.icon size={14} style={{ color: r.color }} />
+            </span>
+            <div className="flex-1 min-w-0">
+              <div className="text-[11px] text-slate-500">{r.label}</div>
+              <div className="text-sm font-bold text-slate-800">{r.value}</div>
+            </div>
+            <div className="w-16 shrink-0">
+              <Sparkline data={dailyVolume} color={r.color} />
+            </div>
+          </div>
+        ))}
+      </div>
+      <p className="text-[10px] text-slate-400 pt-3 mt-3 border-t border-slate-100 leading-relaxed">
+        Rates computed from alerts in the selected period. Sparkline shows
+        daily alert volume.
+      </p>
+    </div>
+  );
+}
+
+// ─── Status pill tabs (colors reused from STATUS_META — no new palette) ─────
+function StatusTabs({ value, onChange, counts }) {
+  const items = [
+    { key: "all", label: "All Alerts", color: "#475569" },
+    { key: "open", label: "Open", color: STATUS_META.open.color },
+    {
+      key: "acknowledged",
+      label: "Acknowledged",
+      color: STATUS_META.acknowledged.color,
+    },
+    { key: "resolved", label: "Resolved", color: STATUS_META.resolved.color },
+  ];
+  return (
+    <div className="flex items-center gap-1.5 flex-wrap">
+      {items.map((it) => {
+        const active = value === it.key;
+        return (
+          <button
+            key={it.key}
+            onClick={() => onChange(it.key)}
+            className={cn(
+              "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold transition border",
+              active
+                ? "border-transparent"
+                : "border-slate-200 text-slate-500 hover:border-slate-300",
+            )}
+            style={
+              active ? { background: `${it.color}1a`, color: it.color } : undefined
+            }
+          >
+            {it.label}
+            <span
+              className="px-1.5 py-0.5 rounded-full text-[10px]"
+              style={{
+                background: active ? "#fff" : "#f1f5f9",
+                color: active ? it.color : "#64748b",
+              }}
+            >
+              {counts[it.key]}
+            </span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+// ─── Kebab actions menu (Acknowledge / Resolve / Reopen) ────────────────────
+function AlertActionsMenu({ status, onAcknowledge, onResolve, onReopen }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+
+  useEffect(() => {
+    const handler = (e) => {
+      if (ref.current && !ref.current.contains(e.target)) setOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  return (
+    <div className="relative inline-block" ref={ref}>
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition"
+      >
+        <MoreVertical size={14} />
+      </button>
+      {open && (
+        <div className="absolute right-0 z-20 mt-1 w-40 rounded-xl border border-slate-100 bg-white shadow-lg py-1">
+          {status === "open" && (
+            <button
+              onClick={() => {
+                onAcknowledge();
+                setOpen(false);
+              }}
+              className="w-full flex items-center gap-2 px-3 py-2 text-xs text-blue-600 hover:bg-blue-50"
+            >
+              <Check size={12} /> Acknowledge
+            </button>
+          )}
+          {status === "acknowledged" && (
+            <button
+              onClick={() => {
+                onResolve();
+                setOpen(false);
+              }}
+              className="w-full flex items-center gap-2 px-3 py-2 text-xs text-emerald-600 hover:bg-emerald-50"
+            >
+              <ShieldCheck size={12} /> Resolve
+            </button>
+          )}
+          {status !== "open" && (
+            <button
+              onClick={() => {
+                onReopen();
+                setOpen(false);
+              }}
+              className="w-full flex items-center gap-2 px-3 py-2 text-xs text-rose-600 hover:bg-rose-50"
+            >
+              <RotateCcw size={12} /> Reopen
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function AlertsPage() {
   const [searchParams] = useSearchParams();
   const imeiFromQuery = searchParams.get("imei") || "";
@@ -105,6 +363,7 @@ export default function AlertsPage() {
   const [statusTab, setStatusTab] = useState("all"); // all | open | acknowledged | resolved
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
+  const [mapExpanded, setMapExpanded] = useState(false);
 
   const { getStatus, acknowledge, resolve, reopen } = useAlertTriage(accountId);
 
@@ -186,18 +445,6 @@ export default function AlertsPage() {
     );
   }, [alerts, imeiFilter]);
 
-  // ── KPI derivations ──────────────────────────────────────────────────────────
-  // classifyAlert is used everywhere (here, the charts, the table) so severity
-  // counts can never disagree with what's shown per-row.
-  const severityCounts = useMemo(() => {
-    const counts = { critical: 0, high: 0, medium: 0, low: 0 };
-    for (const a of filtered) {
-      const { severity } = classifyAlert(a, typeLabel(a.type));
-      counts[severity] = (counts[severity] ?? 0) + 1;
-    }
-    return counts;
-  }, [filtered]);
-
   const total = filtered.length;
   const ackCount = filtered.filter(
     (a) => getStatus(a.id) === "acknowledged",
@@ -214,11 +461,50 @@ export default function AlertsPage() {
     return Object.values(byVehicle).filter((c) => c >= 2).length;
   }, [filtered]);
 
-  const pctOfTotal = (n) =>
-    total ? `${((n / total) * 100).toFixed(1)}% of total` : "—";
+  // Critical alerts that are still open right now (severity + live status combined)
+  const criticalOpenCount = useMemo(
+    () =>
+      filtered.filter((a) => {
+        const { severity } = classifyAlert(a, typeLabel(a.type));
+        return severity === "critical" && getStatus(a.id) === "open";
+      }).length,
+    [filtered, getStatus],
+  );
 
-  // Row 1 — severity breakdown (the primary ask: Critical/High/Medium/Low counts)
-  const severityKpis = [
+  // Open alerts that have sat unactioned past the threshold — a simple,
+  // honest "open too long" flag, not a formal contractual SLA.
+  const slaBreachedCount = useMemo(() => {
+    const now = Date.now();
+    return filtered.filter((a) => {
+      if (getStatus(a.id) !== "open") return false;
+      const created = new Date(a.createdOn).getTime();
+      if (isNaN(created)) return false;
+      return now - created > SLA_BREACH_MINUTES * 60000;
+    }).length;
+  }, [filtered, getStatus]);
+
+  const pctOfTotal = (n) => (total ? (n / total) * 100 : 0);
+  const ackRate = pctOfTotal(ackCount);
+  const resolvedRate = pctOfTotal(resolvedCount);
+  const repeatRate = pctOfTotal(repeatVehicles);
+  const slaBreachRate = pctOfTotal(slaBreachedCount);
+
+  // Real daily alert-volume distribution, used for the performance sparklines
+  const dailyVolume = useMemo(() => {
+    const buckets = {};
+    filtered.forEach((a) => {
+      const d = new Date(a.createdOn);
+      if (isNaN(d)) return;
+      const key = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+      buckets[key] = (buckets[key] ?? 0) + 1;
+    });
+    return Object.entries(buckets)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([date, count]) => ({ date, count }));
+  }, [filtered]);
+
+  // Row 1 — single KPI row (5 cards)
+  const kpis = [
     {
       icon: Bell,
       iconBg: "#eff6ff",
@@ -231,38 +517,10 @@ export default function AlertsPage() {
       icon: AlertOctagon,
       iconBg: SEVERITY_META.critical.bg,
       iconColor: SEVERITY_META.critical.color,
-      label: "Critical",
-      value: formatNumber(severityCounts.critical),
-      trend: <Trend value={pctOfTotal(severityCounts.critical)} neutral />,
+      label: "Critical Open",
+      value: formatNumber(criticalOpenCount),
+      trend: <Trend value="Currently open" neutral />,
     },
-    {
-      icon: AlertOctagon,
-      iconBg: SEVERITY_META.high.bg,
-      iconColor: SEVERITY_META.high.color,
-      label: "High",
-      value: formatNumber(severityCounts.high),
-      trend: <Trend value={pctOfTotal(severityCounts.high)} neutral />,
-    },
-    {
-      icon: AlertOctagon,
-      iconBg: SEVERITY_META.medium.bg,
-      iconColor: SEVERITY_META.medium.color,
-      label: "Medium",
-      value: formatNumber(severityCounts.medium),
-      trend: <Trend value={pctOfTotal(severityCounts.medium)} neutral />,
-    },
-    {
-      icon: AlertOctagon,
-      iconBg: SEVERITY_META.low.bg,
-      iconColor: SEVERITY_META.low.color,
-      label: "Low",
-      value: formatNumber(severityCounts.low),
-      trend: <Trend value={pctOfTotal(severityCounts.low)} neutral />,
-    },
-  ];
-
-  // Row 2 — local triage breakdown (unchanged functionality, just moved to its own row)
-  const triageKpis = [
     {
       icon: CheckCircle2,
       iconBg: "#dbeafe",
@@ -275,17 +533,17 @@ export default function AlertsPage() {
       icon: ShieldCheck,
       iconBg: "#dcfce7",
       iconColor: "#16a34a",
-      label: "Resolved",
+      label: quick === "today" ? "Resolved Today" : "Resolved",
       value: formatNumber(resolvedCount),
       trend: <Trend value="Tracked locally" neutral />,
     },
     {
-      icon: Repeat,
-      iconBg: "#fef3c7",
-      iconColor: "#d97706",
-      label: "Repeat Alerts",
-      value: formatNumber(repeatVehicles),
-      trend: <Trend value="Vehicles with 2+ alerts" neutral />,
+      icon: AlertTriangle,
+      iconBg: "#fee2e2",
+      iconColor: "#e11d48",
+      label: "SLA Breached",
+      value: formatNumber(slaBreachedCount),
+      trend: <Trend value={`Open > ${SLA_BREACH_MINUTES}m`} neutral />,
     },
   ];
 
@@ -526,59 +784,111 @@ export default function AlertsPage() {
         </Card>
       ) : (
         <>
-          {/* KPI row — severity breakdown */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-5 gap-4 mb-4">
-            {severityKpis.map((k, i) => (
+          {/* KPI row */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-5 gap-4 mb-5">
+            {kpis.map((k, i) => (
               <KpiCard key={k.label} {...k} index={i} loading={loading} />
             ))}
           </div>
 
-          {/* KPI row — local triage breakdown */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-5">
-            {triageKpis.map((k, i) => (
-              <KpiCard key={k.label} {...k} index={i + 5} loading={loading} />
-            ))}
-          </div>
-
-          {/* Live map + severity donut */}
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 mb-5">
-            <div className="lg:col-span-8">
-              <Card hover>
-                <CardHeader
+          {/* Live map / severity donut / performance — 3-panel row, height-locked */}
+          {mapExpanded ? (
+            <div className="mb-5">
+              <PanelShell
+                height={EXPANDED_MAP_HEIGHT}
+                title="Live Alert Map"
+                subtitle="All located alerts in the selected period"
+                action={
+                  <button
+                    onClick={() => setMapExpanded(false)}
+                    title="Collapse"
+                    className="p-2 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition shrink-0"
+                  >
+                    <Minimize2 size={15} />
+                  </button>
+                }
+              >
+                <AlertLiveMap alerts={filtered} loading={loading} />
+              </PanelShell>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 mb-5 items-start">
+              <div className="lg:col-span-5">
+                <PanelShell
+                  height={ROW1_HEIGHT}
                   title="Live Alert Map"
                   subtitle="All located alerts in the selected period"
-                />
-                <AlertLiveMap alerts={filtered} loading={loading} />
-              </Card>
+                  action={
+                    <button
+                      onClick={() => setMapExpanded(true)}
+                      title="Expand"
+                      className="p-2 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition shrink-0"
+                    >
+                      <Maximize2 size={15} />
+                    </button>
+                  }
+                >
+                  <AlertLiveMap alerts={filtered} loading={loading} />
+                </PanelShell>
+              </div>
+              <div className="lg:col-span-4">
+                <PanelShell
+                  height={ROW1_HEIGHT}
+                  title="Alert Severity Distribution"
+                  subtitle="Breakdown by severity level"
+                >
+                  <AlertSeverityDonut alerts={filtered} loading={loading} />
+                </PanelShell>
+              </div>
+              <div className="lg:col-span-3">
+                <PanelShell
+                  height={ROW1_HEIGHT}
+                  title="Alert Performance"
+                  subtitle={
+                    quick
+                      ? QUICK.find((q) => q.key === quick)?.label
+                      : "Selected period"
+                  }
+                  scroll
+                >
+                  <AlertPerformanceContent
+                    ackRate={ackRate}
+                    resolvedRate={resolvedRate}
+                    repeatRate={repeatRate}
+                    slaBreachRate={slaBreachRate}
+                    dailyVolume={dailyVolume}
+                  />
+                </PanelShell>
+              </div>
             </div>
-            <div className="lg:col-span-4">
-              <Card hover>
-                <CardHeader title="Alert Severity Distribution" />
-                <AlertSeverityDonut alerts={filtered} loading={loading} />
-              </Card>
-            </div>
-          </div>
+          )}
 
-          {/* Categories + response status + critical list */}
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 mb-5">
+          {/* Categories + response status + critical list — height-locked row */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 mb-5 items-start">
             <div className="lg:col-span-5">
-              <Card hover>
-                <CardHeader title="Alert Categories" />
+              <PanelShell height={ROW2_HEIGHT} title="Alert Categories">
                 <AlertCategoriesChart alerts={filtered} loading={loading} />
-              </Card>
+              </PanelShell>
             </div>
             <div className="lg:col-span-4">
-              <Card hover>
-                <CardHeader title="Response Status" />
+              <PanelShell height={ROW2_HEIGHT} title="Response Status" scroll>
                 <ResponseStatusCard
                   alerts={filtered}
                   getStatus={getStatus}
                   loading={loading}
                 />
-              </Card>
+              </PanelShell>
             </div>
             <div className="lg:col-span-3">
-              <Card hover>
+              {/* CriticalAlertsListCard renders its own internal header, so it
+                  gets a bare fixed-height Card (no PanelShell) to avoid a
+                  duplicate header — but the outer box is still locked to
+                  ROW2_HEIGHT so it aligns with its siblings. */}
+              <Card
+                hover
+                className="flex flex-col"
+                style={{ height: ROW2_HEIGHT, overflowY: "auto" }}
+              >
                 <CriticalAlertsListCard
                   alerts={filtered}
                   loading={loading}
@@ -591,25 +901,11 @@ export default function AlertsPage() {
           {/* All Alerts table */}
           <Card id="alerts-table-section">
             <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
-              <div className="flex items-center gap-3 flex-wrap">
-                <h3 className="text-sm font-bold text-slate-800">All Alerts</h3>
-                <Tabs
-                  value={statusTab}
-                  onChange={setStatusTab}
-                  tabs={[
-                    { value: "all", label: `All (${tabCounts.all})` },
-                    { value: "open", label: `Open (${tabCounts.open})` },
-                    {
-                      value: "acknowledged",
-                      label: `Ack (${tabCounts.acknowledged})`,
-                    },
-                    {
-                      value: "resolved",
-                      label: `Resolved (${tabCounts.resolved})`,
-                    },
-                  ]}
-                />
-              </div>
+              <StatusTabs
+                value={statusTab}
+                onChange={setStatusTab}
+                counts={tabCounts}
+              />
               <div className="relative">
                 <Search
                   size={13}
@@ -645,7 +941,6 @@ export default function AlertsPage() {
                           "Severity",
                           "Vehicle / Device",
                           "Location",
-                          "Message",
                           "Triggered At",
                           "Status",
                           "Actions",
@@ -654,7 +949,13 @@ export default function AlertsPage() {
                             key={h}
                             className="px-3 py-2.5 text-left text-slate-400 font-semibold whitespace-nowrap"
                           >
-                            {h}
+                            {h === "Triggered At" ? (
+                              <span className="inline-flex items-center gap-1">
+                                {h} <span className="text-slate-300">↓</span>
+                              </span>
+                            ) : (
+                              h
+                            )}
                           </th>
                         ))}
                       </tr>
@@ -716,22 +1017,13 @@ export default function AlertsPage() {
                                   size={11}
                                   className="text-slate-400 shrink-0 mt-0.5"
                                 />
-                                <span className="line-clamp-1">
+                                <span
+                                  className="line-clamp-1"
+                                  title={a.message || undefined}
+                                >
                                   {a.address || "No details"}
                                 </span>
                               </span>
-                            </td>
-                            <td
-                              className="px-3 py-2.5 text-slate-500 max-w-[240px]"
-                              title={a.message || undefined}
-                            >
-                              {a.message ? (
-                                <span className="text-[11px] italic line-clamp-2">
-                                  {a.message}
-                                </span>
-                              ) : (
-                                <span className="text-slate-300">—</span>
-                              )}
                             </td>
                             <td className="px-3 py-2.5 whitespace-nowrap text-slate-500">
                               <span className="flex items-center gap-1">
@@ -751,7 +1043,7 @@ export default function AlertsPage() {
                               </span>
                             </td>
                             <td className="px-3 py-2.5 whitespace-nowrap">
-                              <div className="flex items-center gap-1.5">
+                              <div className="flex items-center justify-end gap-1">
                                 {a.latitude && a.longitude && (
                                   <button
                                     onClick={() => trackVehicle(a)}
@@ -761,33 +1053,12 @@ export default function AlertsPage() {
                                     <Eye size={13} />
                                   </button>
                                 )}
-                                {status === "open" && (
-                                  <button
-                                    onClick={() => acknowledge(a.id)}
-                                    title="Acknowledge"
-                                    className="p-1.5 rounded-lg text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition"
-                                  >
-                                    <Check size={13} />
-                                  </button>
-                                )}
-                                {status === "acknowledged" && (
-                                  <button
-                                    onClick={() => resolve(a.id)}
-                                    title="Resolve"
-                                    className="p-1.5 rounded-lg text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 transition"
-                                  >
-                                    <ShieldCheck size={13} />
-                                  </button>
-                                )}
-                                {status !== "open" && (
-                                  <button
-                                    onClick={() => reopen(a.id)}
-                                    title="Reopen"
-                                    className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition"
-                                  >
-                                    <RotateCcw size={13} />
-                                  </button>
-                                )}
+                                <AlertActionsMenu
+                                  status={status}
+                                  onAcknowledge={() => acknowledge(a.id)}
+                                  onResolve={() => resolve(a.id)}
+                                  onReopen={() => reopen(a.id)}
+                                />
                               </div>
                             </td>
                           </tr>

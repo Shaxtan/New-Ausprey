@@ -123,7 +123,7 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* ── Fleet utilization + top accounts by distance ── */}
+      {/* ── Fleet utilization + top accounts by dista
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-5">
         <FleetUtilizationCard
           points={utilizationQuery.data?.points ?? []}

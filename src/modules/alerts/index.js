@@ -1,1 +1,1 @@
-export { default } from './pages/AlertsPage';
+export { default } from './pages/AlertPage';

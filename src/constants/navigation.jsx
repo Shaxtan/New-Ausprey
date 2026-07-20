@@ -58,16 +58,16 @@ export const NAVIGATION = [
     to: PATHS.LIVE_LOAD,
   },
   { id: "divider-1", divider: true },
-  {
-    id: "admin",
-    label: "Administration",
-    icon: SlidersHorizontal,
-    group: true,
-    children: [
-      { id: "users", label: "Users & Roles", icon: Users, to: PATHS.USERS },
-      { id: "settings", label: "Settings", icon: Settings, to: PATHS.SETTINGS },
-    ],
-  },
+  // {
+  //   id: "admin",
+  //   label: "Administration",
+  //   icon: SlidersHorizontal,
+  //   group: true,
+  //   children: [
+  //     { id: "users", label: "Users & Roles", icon: Users, to: PATHS.USERS },
+  //     { id: "settings", label: "Settings", icon: Settings, to: PATHS.SETTINGS },
+  //   ],
+  // },
 ];
 
 export default NAVIGATION;
