@@ -426,6 +426,15 @@ class ApiService {
     );
   }
 
+  getTopDistanceDevices(accid = 1, limit = 10) {
+    return this.postRequest(
+      `/reports/top-distance-devices?accid=${accid}&limit=${limit}`,
+      {},
+      true,
+      SERVICES.dashboard,
+    );
+  }
+
   // ── Misc ──────────────────────────────────────────────────────────────────
 
   getAllDevicesByAccount() {

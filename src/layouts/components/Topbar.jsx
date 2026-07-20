@@ -43,6 +43,8 @@ function RefreshControl() {
     setSecondsLeft(REFRESH_MS / 1000);
     qc.invalidateQueries({ queryKey: ["dashboard", "data", accid] });
     qc.invalidateQueries({ queryKey: ["dashboard", "unreachable", accid] });
+    qc.invalidateQueries({ queryKey: ["dashboard", "top-distance", accid] });
+    qc.invalidateQueries({ queryKey: ["dashboard", "alerts", accid] });
     setTimeout(() => setIsRefreshing(false), 1500);
   };
 

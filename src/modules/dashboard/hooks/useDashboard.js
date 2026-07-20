@@ -23,60 +23,37 @@ const toApiDate = (s) => {
 };
 
 /**
- * Top sub-accounts by total distance for today — used by the dashboard chart.
- * Uses getAccountSummaryReport which returns childAccounts[] with totalDistance.
+ * Top vehicles by distance — used by the dashboard chart + list.
+ * Uses the dedicated /reports/top-distance-devices endpoint (returns
+ * per-vehicle distance directly, ranked server-side).
+ *
+ * refetchInterval is intentionally omitted — refresh is driven centrally
+ * by the Topbar's refresh timer (see Topbar.jsx RefreshControl), which
+ * invalidates this exact query key on its own countdown. staleTime still
+ * prevents redundant refetches on route change / remount within that window.
  */
-export const useTopDistanceDevices = (topN = 5) => {
+export const useTopDistanceDevices = (limit = 10) => {
   const accid = useAccountStore((s) => s.selectedAccount?.id);
   return useQuery({
     queryKey: [KEY, "top-distance", accid],
     enabled: accid != null,
     staleTime: REFRESH_MS,
-    refetchInterval: REFRESH_MS,
     queryFn: async () => {
-      const today = new Date();
-      const yesterday = new Date();
-      yesterday.setDate(today.getDate() - 1);
-
-      const startDate = toApiDate(toLocalYmd(yesterday));
-      const endDate = toApiDate(toLocalYmd(today));
-
-      const res = await apiService.getAccountSummaryReport(
-        startDate,
-        endDate,
-        accid ?? 1,
-      );
+      const res = await apiService.getTopDistanceDevices(accid ?? 1, limit);
       const body = res?.data;
       if (body?.resultCode !== 1) return [];
 
-      // Recursively collect all accounts that have actual fleet data.
-      // The tree can be arbitrarily deep (Ausprey → Tech-Hop → sub-accounts).
-      // We want the deepest nodes with distance > 0 — i.e. real fleet accounts,
-      // not intermediate aggregation nodes.
-      const collectLeaves = (node) => {
-        if (!node) return [];
-        const children = node.childAccounts ?? [];
-        if (children.length === 0) {
-          // Leaf node — return itself if it has distance data
-          return Number(node.totalDistance ?? 0) > 0 ? [node] : [];
-        }
-        // Internal node — recurse into children
-        return children.flatMap(collectLeaves);
-      };
-
-      const root = Array.isArray(body.data) ? body.data[0] : null;
-      const list = collectLeaves(root);
-
-      return [...list]
-        .filter((a) => Number(a.totalDistance ?? 0) > 0)
-        .sort((a, b) => Number(b.totalDistance) - Number(a.totalDistance))
-        .slice(0, topN)
-        .map((a) => ({
-          name: a.accountName,
-          value: Number(a.totalDistance ?? 0),
-          devices: Number(a.deviceCount ?? 0),
-          accountId: a.accountId,
-        }));
+      return (body.data ?? [])
+        .map((d) => ({
+          name: d.vehNum || d.id || "Unknown",
+          value: Math.round(Number(d.distance ?? d.gpsDistance ?? 0)),
+          imei: d.id,
+          accountId: d.accId,
+          accountName: d.accName,
+        }))
+        .filter((d) => d.value > 0)
+        .sort((a, b) => b.value - a.value)
+        .slice(0, limit);
     },
   });
 };
@@ -178,7 +155,10 @@ export const useDashboardAlerts = () => {
     },
     enabled: accid != null,
     staleTime: REFRESH_MS,
-    refetchInterval: REFRESH_MS,
+    // refetchInterval intentionally omitted — the Topbar's refresh timer
+    // invalidates ["dashboard","alerts",accid] on its own countdown so this
+    // card refreshes in lockstep with Top by Distance and the rest of the
+    // dashboard, instead of on a second, independently-drifting timer.
   });
 };
 
