@@ -39,6 +39,8 @@ import {
 } from "lucide-react";
 
 import { Card, Skeleton } from "@/components/ui";
+import { MapStyleControl } from "@/components/maps";
+import { MAP_MODES, DEFAULT_MAP_MODE } from "@/utils/mapTiles";
 import { cn } from "@/utils";
 import { useAccountStore } from "@/store";
 import { trackingService } from "../services/tracking.service";
@@ -628,9 +630,8 @@ export default function TrackingPage() {
     [vehicles],
   );
 
-  const TILE_URL =
-    import.meta.env.VITE_MAP_TILE_URL ||
-    "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png";
+  const [mapMode, setMapMode] = useState(DEFAULT_MAP_MODE);
+  const activeTile = MAP_MODES[mapMode];
 
   return (
     <div className="flex flex-col h-[calc(100vh-64px)]">
@@ -661,8 +662,9 @@ export default function TrackingPage() {
           >
             <MapFixer />
             <TileLayer
-              url={TILE_URL}
-              attribution="© OpenStreetMap contributors"
+              key={mapMode}
+              url={activeTile.url}
+              attribution={activeTile.attribution}
             />
 
             {flyTarget && <FlyTo position={flyTarget} />}
@@ -719,6 +721,12 @@ export default function TrackingPage() {
             </div>
           )}
         </div>
+
+        <MapStyleControl
+          value={mapMode}
+          onChange={setMapMode}
+          className="absolute top-3 right-3 z-[1001]"
+        />
 
         {/* ── Floating LEFT sidebar — overlays the map ── */}
         <div

@@ -1,1 +1,2 @@
-export { FleetMap } from './FleetMap';
+export { FleetMap } from "./FleetMap";
+export { MapStyleControl } from "./MapStyleControl";

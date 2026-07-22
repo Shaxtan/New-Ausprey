@@ -5,10 +5,12 @@
  * (colour = derived severity). Clicking a marker shows a popup with
  * type, vehicle, time, and message.
  */
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { Skeleton } from "@/components/ui";
+import { MapStyleControl } from "@/components/maps";
+import { MAP_MODES, DEFAULT_MAP_MODE } from "@/utils/mapTiles";
 import { classifyAlert, SEVERITY_META } from "../utils/alertSeverity";
 import { typeLabel } from "@/modules/dashboard/components/AlertsModal";
 
@@ -36,10 +38,8 @@ export function AlertLiveMap({ alerts = [], loading }) {
   const divRef = useRef(null);
   const mapRef = useRef(null);
   const layerRef = useRef(null);
-
-  const TILE =
-    import.meta.env.VITE_MAP_TILE_URL ||
-    "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png";
+  const tileLayerRef = useRef(null);
+  const [mapMode, setMapMode] = useState(DEFAULT_MAP_MODE);
 
   useEffect(() => {
     if (mapRef.current || !divRef.current) return;
@@ -49,7 +49,9 @@ export function AlertLiveMap({ alerts = [], loading }) {
       zoomControl: false,
       attributionControl: false,
     });
-    L.tileLayer(TILE, { attribution: "" }).addTo(map);
+    tileLayerRef.current = L.tileLayer(MAP_MODES[DEFAULT_MAP_MODE].url, {
+      attribution: "",
+    }).addTo(map);
     L.control.zoom({ position: "topright" }).addTo(map);
     layerRef.current = L.layerGroup().addTo(map);
     mapRef.current = map;
@@ -60,6 +62,10 @@ export function AlertLiveMap({ alerts = [], loading }) {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    tileLayerRef.current?.setUrl(MAP_MODES[mapMode].url);
+  }, [mapMode]);
 
   useEffect(() => {
     const map = mapRef.current,
@@ -113,6 +119,11 @@ export function AlertLiveMap({ alerts = [], loading }) {
         </div>
       )}
       <div ref={divRef} className="w-full h-full" />
+      <MapStyleControl
+        value={mapMode}
+        onChange={setMapMode}
+        className="absolute top-2.5 left-2.5 z-[1000]"
+      />
     </div>
   );
 }

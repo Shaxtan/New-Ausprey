@@ -8,12 +8,14 @@
  * Data: useMapViewData() → array of { lat, lng, vehnum/name, speed, ign, ... }
  * Reuses the same status classification as the full MapPage.
  */
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { Maximize2 } from "lucide-react";
 import { Card, Skeleton } from "@/components/ui";
+import { MapStyleControl } from "@/components/maps";
+import { MAP_MODES, DEFAULT_MAP_MODE } from "@/utils/mapTiles";
 import { PATHS } from "@/constants";
 import { cn } from "@/utils";
 
@@ -40,10 +42,8 @@ export function DashboardLiveMap({ data = [], loading }) {
   const mapDivRef = useRef(null);
   const mapRef = useRef(null);
   const layerRef = useRef(null);
-
-  const TILE =
-    import.meta.env.VITE_MAP_TILE_URL ||
-    "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png";
+  const tileLayerRef = useRef(null);
+  const [mapMode, setMapMode] = useState(DEFAULT_MAP_MODE);
 
   // Init map once
   useEffect(() => {
@@ -56,7 +56,9 @@ export function DashboardLiveMap({ data = [], loading }) {
       scrollWheelZoom: false,
       dragging: true,
     });
-    L.tileLayer(TILE, { attribution: "" }).addTo(map);
+    tileLayerRef.current = L.tileLayer(MAP_MODES[DEFAULT_MAP_MODE].url, {
+      attribution: "",
+    }).addTo(map);
     L.control.zoom({ position: "bottomright" }).addTo(map);
     layerRef.current = L.layerGroup().addTo(map);
     mapRef.current = map;
@@ -67,6 +69,11 @@ export function DashboardLiveMap({ data = [], loading }) {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Swap tile layer when the style mode changes
+  useEffect(() => {
+    tileLayerRef.current?.setUrl(MAP_MODES[mapMode].url);
+  }, [mapMode]);
 
   // Update markers when data changes
   useEffect(() => {
@@ -126,6 +133,11 @@ export function DashboardLiveMap({ data = [], loading }) {
           </div>
         )}
         <div ref={mapDivRef} className="w-full" style={{ height: 260 }} />
+        <MapStyleControl
+          value={mapMode}
+          onChange={setMapMode}
+          className="absolute top-2.5 right-2.5 z-[1000]"
+        />
       </div>
 
       {/* Legend */}

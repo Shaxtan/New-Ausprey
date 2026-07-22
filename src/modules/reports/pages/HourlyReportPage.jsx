@@ -52,6 +52,8 @@ import {
 } from "lucide-react";
 import { PageHeader } from "@/components/common";
 import { Card, Skeleton, Spinner } from "@/components/ui";
+import { MapStyleControl } from "@/components/maps";
+import { MAP_MODES, DEFAULT_MAP_MODE } from "@/utils/mapTiles";
 import { useAccountStore } from "@/store";
 import apiService from "@/services/apiService";
 import { cn } from "@/utils";
@@ -309,9 +311,8 @@ function SessionMap({ imei, session, isPlaying }) {
     return () => clearTimeout(rafRef.current);
   }, [isPlaying]);
 
-  const TILE =
-    import.meta.env.VITE_MAP_TILE_URL ||
-    "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png";
+  const [mapMode, setMapMode] = useState(DEFAULT_MAP_MODE);
+  const activeTile = MAP_MODES[mapMode];
 
   return (
     <div className="relative h-full">
@@ -326,7 +327,11 @@ function SessionMap({ imei, session, isPlaying }) {
         scrollWheelZoom
         style={{ height: "100%", width: "100%" }}
       >
-        <TileLayer url={TILE} attribution="© OpenStreetMap" />
+        <TileLayer
+          key={mapMode}
+          url={activeTile.url}
+          attribution={activeTile.attribution}
+        />
         {markerPos && <FlyTo pos={markerPos} />}
         {route.length > 1 && (
           <Polyline
@@ -348,6 +353,11 @@ function SessionMap({ imei, session, isPlaying }) {
           />
         )}
       </MapContainer>
+      <MapStyleControl
+        value={mapMode}
+        onChange={setMapMode}
+        className="absolute top-2 right-2 z-[700]"
+      />
       {route.length > 0 && (
         <div className="absolute bottom-2 left-2 right-2 z-[700] bg-white/95 backdrop-blur rounded-xl px-3 py-2 shadow-lg text-xs">
           <div className="flex justify-between text-slate-500 mb-1">

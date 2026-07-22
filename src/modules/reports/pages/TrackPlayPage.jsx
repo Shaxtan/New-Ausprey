@@ -33,6 +33,8 @@ import {
 } from "lucide-react";
 import { useAccountStore } from "@/store";
 import apiService from "@/services/apiService";
+import { MapStyleControl } from "@/components/maps";
+import { MAP_MODES, DEFAULT_MAP_MODE } from "@/utils/mapTiles";
 import { cn } from "@/utils";
 
 // ─── Leaflet default icon fix ─────────────────────────────────────────────────
@@ -282,6 +284,7 @@ export default function TrackPlayPage() {
   // Refs — map / layers / animation
   const mapRef = useRef(null);
   const layerRef = useRef(null);
+  const tileLayerRef = useRef(null);
   const markerRef = useRef(null);
   const rafRef = useRef(null);
   const idxRef = useRef(0);
@@ -316,6 +319,7 @@ export default function TrackPlayPage() {
   const [listOpen, setListOpen] = useState(false);
   const [highlightIdx, setHighlightIdx] = useState(null);
   const [playInfo, setPlayInfo] = useState(null);
+  const [mapMode, setMapMode] = useState(DEFAULT_MAP_MODE);
 
   // Keep followRef in sync so the animation loop reads the latest value
   useEffect(() => {
@@ -343,15 +347,14 @@ export default function TrackPlayPage() {
   // ── Map init (once) ──
   useEffect(() => {
     if (mapRef.current) return;
-    const TILE =
-      import.meta.env.VITE_MAP_TILE_URL ||
-      "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png";
     const map = L.map("trackplay-map", {
       center: [22.5589, 75.6089],
       zoom: 5,
       zoomControl: false,
     });
-    L.tileLayer(TILE, { attribution: "© OpenStreetMap" }).addTo(map);
+    tileLayerRef.current = L.tileLayer(MAP_MODES[DEFAULT_MAP_MODE].url, {
+      attribution: "© OpenStreetMap",
+    }).addTo(map);
     L.control.zoom({ position: "topright" }).addTo(map);
     L.control.scale().addTo(map);
     layerRef.current = L.layerGroup().addTo(map);
@@ -363,6 +366,11 @@ export default function TrackPlayPage() {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Swap tile layer when the style mode changes
+  useEffect(() => {
+    tileLayerRef.current?.setUrl(MAP_MODES[mapMode].url);
+  }, [mapMode]);
 
   // Invalidate size when panel toggles
   useEffect(() => {
@@ -983,6 +991,12 @@ export default function TrackPlayPage() {
           marginLeft: panelOpen ? 300 : 0,
           width: panelOpen ? "calc(100% - 300px)" : "100%",
         }}
+      />
+
+      <MapStyleControl
+        value={mapMode}
+        onChange={setMapMode}
+        className="absolute top-20 right-3 z-[1000]"
       />
 
       {/* ── Bottom info bar (horizontal, like live tracking) ── */}

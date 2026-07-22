@@ -22,6 +22,8 @@ import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { Pencil, X } from "lucide-react";
 import { cn } from "@/utils";
+import { MapStyleControl } from "@/components/maps";
+import { MAP_MODES, DEFAULT_MAP_MODE } from "@/utils/mapTiles";
 
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
@@ -75,6 +77,7 @@ export const GeofenceMap = forwardRef(function GeofenceMap(
   const divRef = useRef(null);
   const mapRef = useRef(null);
   const layerRef = useRef(null);
+  const tileLayerRef = useRef(null);
   const circlesById = useRef({});
 
   const [drawMode, setDrawMode] = useState(false);
@@ -83,13 +86,11 @@ export const GeofenceMap = forwardRef(function GeofenceMap(
     drawModeRef.current = drawMode;
   }, [drawMode]);
 
+  const [mapMode, setMapMode] = useState(DEFAULT_MAP_MODE);
+
   const isDrawingRef = useRef(false);
   const centerRef = useRef(null);
   const tempCircleRef = useRef(null);
-
-  const TILE =
-    import.meta.env.VITE_MAP_TILE_URL ||
-    "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png";
 
   // Expose flyTo(id) to the parent (list click → locate on map)
   useImperativeHandle(ref, () => ({
@@ -110,7 +111,9 @@ export const GeofenceMap = forwardRef(function GeofenceMap(
       zoom: 5,
       zoomControl: false,
     });
-    L.tileLayer(TILE, { attribution: "© OpenStreetMap" }).addTo(map);
+    tileLayerRef.current = L.tileLayer(MAP_MODES[DEFAULT_MAP_MODE].url, {
+      attribution: "© OpenStreetMap",
+    }).addTo(map);
     L.control.zoom({ position: "bottomright" }).addTo(map);
     layerRef.current = L.layerGroup().addTo(map);
     mapRef.current = map;
@@ -249,6 +252,11 @@ export const GeofenceMap = forwardRef(function GeofenceMap(
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [accid]);
 
+  // Swap tile layer when the style mode changes
+  useEffect(() => {
+    tileLayerRef.current?.setUrl(MAP_MODES[mapMode].url);
+  }, [mapMode]);
+
   // ── Sync real geofences to the map whenever the list changes ──
   useEffect(() => {
     const map = mapRef.current,
@@ -319,6 +327,12 @@ export const GeofenceMap = forwardRef(function GeofenceMap(
         {drawMode ? <X size={14} /> : <Pencil size={14} />}
         {drawMode ? "Cancel Drawing" : "Draw Zone"}
       </button>
+
+      <MapStyleControl
+        value={mapMode}
+        onChange={setMapMode}
+        className="absolute top-4 right-4 z-[1000]"
+      />
 
       {drawMode && (
         <div className="absolute top-16 left-4 z-[1000] bg-white/95 backdrop-blur px-3 py-2 rounded-xl shadow-lg text-[11px] text-slate-500 max-w-[220px]">

@@ -41,6 +41,8 @@ import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { useNavigate } from "react-router-dom";
 import { Skeleton } from "@/components/ui";
+import { MapStyleControl } from "@/components/maps";
+import { MAP_MODES, DEFAULT_MAP_MODE } from "@/utils/mapTiles";
 import { cn } from "@/utils";
 import apiService from "@/services/apiService";
 import { PATHS } from "@/constants";
@@ -186,11 +188,10 @@ export function VehicleDrawer({ vehicle, onClose }) {
   const [alertsLoad, setAlertsLoad] = useState(true);
   const [route, setRoute] = useState([]); // [lat,lng] list for mini-map polyline
   const [refreshTs, setRefreshTs] = useState(null);
+  const [mapMode, setMapMode] = useState(DEFAULT_MAP_MODE);
+  const activeTile = MAP_MODES[mapMode];
 
   const timerRef = useRef(null);
-  const TILE =
-    import.meta.env.VITE_MAP_TILE_URL ||
-    "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png";
 
   // ── Fetch live stats ─────────────────────────────────────────────────────────
   const fetchLive = useCallback(async () => {
@@ -463,7 +464,11 @@ export function VehicleDrawer({ vehicle, onClose }) {
                 scrollWheelZoom={false}
                 style={{ height: "100%", width: "100%" }}
               >
-                <TileLayer url={TILE} attribution="© OpenStreetMap" />
+                <TileLayer
+                  key={mapMode}
+                  url={activeTile.url}
+                  attribution={activeTile.attribution}
+                />
                 {route.length > 1 && (
                   <Polyline
                     positions={route}
@@ -480,6 +485,11 @@ export function VehicleDrawer({ vehicle, onClose }) {
                 <MapPin size={18} className="mr-2" /> No location data
               </div>
             )}
+            <MapStyleControl
+              value={mapMode}
+              onChange={setMapMode}
+              className="absolute top-2 left-2 z-[500]"
+            />
             {/* Map overlay — open in Google Maps */}
             {markerPos && (
               <a

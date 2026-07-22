@@ -31,13 +31,10 @@ if (typeof document !== "undefined") {
   });
 }
 
-import {
-  Search,
-  ChevronLeft,
-  ChevronRight,
-  RotateCcw,
-} from "lucide-react";
+import { Search, ChevronLeft, ChevronRight, RotateCcw } from "lucide-react";
 import { Skeleton } from "@/components/ui";
+import { MapStyleControl } from "@/components/maps";
+import { MAP_MODES, DEFAULT_MAP_MODE } from "@/utils/mapTiles";
 import { cn } from "@/utils";
 import { useAccountStore } from "@/store";
 import apiService from "@/services/apiService";
@@ -276,6 +273,7 @@ export default function MapPage() {
 
   const mapContainerRef = useRef(null);
   const mapRef = useRef(null);
+  const tileLayerRef = useRef(null);
   const clusterRef = useRef(null);
   const markerMapRef = useRef({}); // vehnum → { marker, status }
   const timerRef = useRef(null);
@@ -293,6 +291,7 @@ export default function MapPage() {
   const [search, setSearch] = useState("");
   const [highlighted, setHighlighted] = useState(null);
   const [collapsed, setCollapsed] = useState(false);
+  const [mapMode, setMapMode] = useState(DEFAULT_MAP_MODE);
 
   // ── Init Leaflet map once ─────────────────────────────────────────────────
   useEffect(() => {
@@ -306,7 +305,7 @@ export default function MapPage() {
     });
     mapRef.current = map;
 
-    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    tileLayerRef.current = L.tileLayer(MAP_MODES[DEFAULT_MAP_MODE].url, {
       maxZoom: 19,
       attribution: "© OpenStreetMap contributors",
     }).addTo(map);
@@ -327,6 +326,11 @@ export default function MapPage() {
       clusterRef.current = null;
     };
   }, []);
+
+  // Swap tile layer when the style mode changes
+  useEffect(() => {
+    tileLayerRef.current?.setUrl(MAP_MODES[mapMode].url);
+  }, [mapMode]);
 
   // ── Fetch + render markers ────────────────────────────────────────────────
   const fetchMapData = useCallback(async () => {
@@ -437,7 +441,9 @@ export default function MapPage() {
         <nav className="flex items-center gap-1.5 text-xs text-slate-400">
           <span>Home</span>
           <span className="text-slate-300">›</span>
-          <span className="text-primary font-semibold text-slate-700">Map View</span>
+          <span className="text-primary font-semibold text-slate-700">
+            Map View
+          </span>
         </nav>
         {/* Refresh */}
         <button
@@ -464,6 +470,12 @@ export default function MapPage() {
             </div>
           )}
         </div>
+
+        <MapStyleControl
+          value={mapMode}
+          onChange={setMapMode}
+          className="absolute top-3 right-3 z-[1001]"
+        />
 
         {/* Floating sidebar — overlays the map on the LEFT with a small inset */}
         <div
