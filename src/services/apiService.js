@@ -435,6 +435,10 @@ class ApiService {
     );
   }
 
+  getDevices() {
+    return this.getRequest("/devices", null, true, SERVICES.accounts);
+  }
+
   // ── Misc ──────────────────────────────────────────────────────────────────
 
   getAllDevicesByAccount() {
