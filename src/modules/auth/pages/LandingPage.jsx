@@ -10,6 +10,8 @@ import { cn } from '@/utils';
 import { PATHS } from '@/constants';
 import { Nav, Footer, CtaBanner, BG, PANEL, PANEL2, GOLD_GRADIENT, KEYFRAMES, fadeUp } from '@/modules/marketing/shared';
 import LoginModal from '../components/LoginModal';
+import DemoRequestModal from '@/modules/marketing/components/DemoRequestModal';
+import DemoVideoModal from '@/modules/marketing/components/DemoVideoModal';
 
 /* ─────────────────────────── data (landing-page-only) ───────────────── */
 const CAPABILITIES = [
@@ -111,7 +113,7 @@ function CountUp({ to, decimals = 0, suffix = '', prefix = '' }) {
 }
 
 /* ─────────────────────────── HERO ──────────────────────────────────── */
-function Hero({ onLogin }) {
+function Hero({ onLogin, onRequestDemo, onWatchDemo }) {
   return (
     <section className="relative flex min-h-[92vh] flex-col items-center justify-center overflow-hidden pt-28 text-center">
       <div className="pointer-events-none absolute inset-x-0 bottom-0 h-[46vh] overflow-hidden" style={{ perspective: '520px' }}>
@@ -150,10 +152,10 @@ function Hero({ onLogin }) {
 
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, delay: 0.32 }}
           className="mt-10 flex flex-wrap items-center justify-center gap-4">
-          <button onClick={onLogin} className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-brand-gold to-amber-500 px-7 py-3.5 text-[14px] font-bold uppercase tracking-wide text-white shadow-xl shadow-amber-900/30 transition hover:-translate-y-0.5 hover:brightness-110">
+          <button onClick={onRequestDemo} className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-brand-gold to-amber-500 px-7 py-3.5 text-[14px] font-bold uppercase tracking-wide text-white shadow-xl shadow-amber-900/30 transition hover:-translate-y-0.5 hover:brightness-110">
             Request a Demo <ArrowRight size={16} />
           </button>
-          <button className="flex items-center gap-2 rounded-xl bg-white px-7 py-3.5 text-[14px] font-bold uppercase tracking-wide text-slate-900 transition hover:-translate-y-0.5 hover:bg-slate-200">
+          <button onClick={onWatchDemo} className="flex items-center gap-2 rounded-xl bg-white px-7 py-3.5 text-[14px] font-bold uppercase tracking-wide text-slate-900 transition hover:-translate-y-0.5 hover:bg-slate-200">
             <Play size={15} className="fill-slate-900" /> Watch Product Demo
           </button>
         </motion.div>
@@ -453,17 +455,31 @@ export default function LandingPage() {
   const open  = () => navigate(PATHS.LOGIN);
   const close = () => navigate('/', { replace: true });
 
+  // Demo request modal is separate from the login modal and isn't
+  // reflected in the URL — it's a lightweight overlay, not a route.
+  const [showDemo, setShowDemo] = useState(false);
+  const openDemo  = () => setShowDemo(true);
+  const closeDemo = () => setShowDemo(false);
+
+  // Video demo modal — plays src/assets/Untitled design.mp4, wired to the
+  // Hero's "Watch Product Demo" button (previously had no handler).
+  const [showVideo, setShowVideo] = useState(false);
+  const openVideo  = () => setShowVideo(true);
+  const closeVideo = () => setShowVideo(false);
+
   return (
     <div className="min-h-screen text-white antialiased" style={{ backgroundColor: BG }}>
       <style>{KEYFRAMES}</style>
       <LoginModal open={showLogin} onClose={close} />
-      <Nav            onLogin={open} />
-      <Hero           onLogin={open} />
+      <DemoRequestModal open={showDemo} onClose={closeDemo} />
+      <DemoVideoModal open={showVideo} onClose={closeVideo} />
+      <Nav            onLogin={open} onRequestDemo={openDemo} />
+      <Hero           onLogin={open} onRequestDemo={openDemo} onWatchDemo={openVideo} />
       <StatsBand />
       <ModuleCards    onLogin={open} />
       <IndustryTabs />
       <PlatformPreview />
-      <CtaBanner      onLogin={open} />
+      <CtaBanner      onLogin={open} onRequestDemo={openDemo} />
       <Footer />
     </div>
   );

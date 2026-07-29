@@ -89,12 +89,16 @@ function MegaMenuPanel({ items }) {
 /* ─────────────────────────── NAV ───────────────────────────────────── */
 const NAV_ITEMS = ['Products', 'Industries', 'Resources', 'Company'];
 
-export function Nav({ onLogin }) {
+export function Nav({ onLogin, onRequestDemo }) {
   const [openMenu, setOpenMenu] = useState(null);
   const closeTimer = useRef(null);
 
   const openWithDelay = (key) => { clearTimeout(closeTimer.current); setOpenMenu(key); };
   const closeWithDelay = () => { closeTimer.current = setTimeout(() => setOpenMenu(null), 160); };
+
+  // If a page doesn't wire onRequestDemo yet, fall back to onLogin so
+  // nothing breaks — every existing usage of <Nav> still works as-is.
+  const demoHandler = onRequestDemo ?? onLogin;
 
   useEffect(() => () => clearTimeout(closeTimer.current), []);
 
@@ -132,7 +136,7 @@ export function Nav({ onLogin }) {
           <button onClick={onLogin} className="rounded-xl bg-white px-4 py-2 text-[13px] font-bold text-slate-900 transition hover:bg-slate-200">
             Log In
           </button>
-          <button onClick={onLogin} className="hidden sm:flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-brand-gold to-amber-500 px-4 py-2 text-[13px] font-bold text-white shadow-lg shadow-amber-900/30 transition hover:brightness-110">
+          <button onClick={demoHandler} className="hidden sm:flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-brand-gold to-amber-500 px-4 py-2 text-[13px] font-bold text-white shadow-lg shadow-amber-900/30 transition hover:brightness-110">
             Request a Demo
           </button>
         </div>
@@ -246,10 +250,15 @@ export function PointsWithImage({ label, title, points, img }) {
 /* ─────────────────────────── CTA BANNER ─────────────────────────────── */
 export function CtaBanner({
   onLogin,
+  onRequestDemo,
   title = 'Ready to take control of your operations?',
   desc = 'Discover how Eyeoty can transform your fleet — in one demo.',
   label = 'Request a Demo',
 }) {
+  // Same fallback pattern as Nav — pages that haven't wired the demo
+  // modal yet keep working exactly as before.
+  const handler = onRequestDemo ?? onLogin;
+
   return (
     <section className="px-6 pb-24">
       <motion.div {...fadeUp} className="relative mx-auto max-w-[1180px] overflow-hidden rounded-3xl border border-brand-gold/20 px-10 py-16 text-center" style={{ backgroundColor: PANEL }}>
@@ -257,7 +266,7 @@ export function CtaBanner({
         <ShieldCheck size={34} className="relative mx-auto mb-5 text-brand-gold" />
         <h3 className="relative text-[clamp(1.7rem,3vw,2.4rem)] font-black tracking-tight text-white">{title}</h3>
         <p className="relative mx-auto mt-3 max-w-md text-[15px] text-slate-400">{desc}</p>
-        <button onClick={onLogin} className="relative mt-8 inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-brand-gold to-amber-500 px-8 py-4 text-[14px] font-bold uppercase tracking-wide text-white shadow-xl shadow-amber-900/30 transition hover:-translate-y-0.5 hover:brightness-110">
+        <button onClick={handler} className="relative mt-8 inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-brand-gold to-amber-500 px-8 py-4 text-[14px] font-bold uppercase tracking-wide text-white shadow-xl shadow-amber-900/30 transition hover:-translate-y-0.5 hover:brightness-110">
           {label} <ArrowRight size={16} />
         </button>
       </motion.div>

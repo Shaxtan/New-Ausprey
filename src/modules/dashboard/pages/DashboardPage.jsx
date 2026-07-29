@@ -96,8 +96,8 @@ export default function DashboardPage() {
     <div>
       <PageHeader
         crumbs={["Home", "Dashboard"]}
-        title="Fleet Overview"
-        description="Real-time insights and intelligence across your fleet"
+        // title="Fleet Overview"
+        // description="Real-time insights and intelligence across your fleet"
       />
 
       {/* ── Fleet summary cards ── */}

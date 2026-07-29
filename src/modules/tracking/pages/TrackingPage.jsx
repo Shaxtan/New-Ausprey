@@ -8,6 +8,21 @@
  *  - Polls `getLiveTrack` every 30 s for the selected vehicle
  *  - Smooth marker animation between GPS fixes (like old project)
  *  - Route accumulation (last 100 points)
+ *
+ * LAYOUT FIX 1 (previous pass): default Leaflet zoom control relocated from
+ * top-left (hidden behind the floating device list) to bottom-right, with
+ * a margin nudge so it clears the LiveInfoOverlay bar.
+ *
+ * UX FIX (previous pass): selecting a vehicle from the sidebar or a map
+ * marker now also auto-collapses the sidebar.
+ *
+ * LAYOUT FIX 2 (this pass): the page was sitting inside the dashboard
+ * layout's padded content wrapper, leaving a visible margin of blank
+ * space on the left/right/bottom of the map. `-m-6` on the root element
+ * cancels out that ancestor padding so the map fills the full content
+ * area edge-to-edge. This assumes the layout wrapper uses Tailwind's
+ * common `p-6` (24px) padding — if a gap remains (or it overshoots),
+ * adjust this single class to match your actual layout padding.
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -18,6 +33,7 @@ import {
   Marker,
   Polyline,
   Popup,
+  ZoomControl,
   useMap,
 } from "react-leaflet";
 import L from "leaflet";
@@ -634,7 +650,7 @@ export default function TrackingPage() {
   const activeTile = MAP_MODES[mapMode];
 
   return (
-    <div className="flex flex-col h-[calc(100vh-64px)]">
+    <div className="flex flex-col h-[calc(100vh-64px)] -m-6">
       {/* ── Minimal header strip ── */}
       <div className="px-4 py-1.5 shrink-0 flex items-center justify-between border-b border-slate-100 bg-white">
         <nav className="flex items-center gap-1.5 text-xs text-slate-400">
@@ -652,12 +668,23 @@ export default function TrackingPage() {
 
       {/* ── Full-screen map area — sidebar floats over it ── */}
       <div className="relative flex-1 min-h-0">
+        {/* Zoom-control positioning fix: nudge the relocated bottom-right
+            zoom buttons up above the LiveInfoOverlay bar so they don't
+            visually collide with it. Adjust the margin-bottom value below
+            if your overlay's height changes. */}
+        <style>{`
+          .tracking-zoom-fix .leaflet-bottom.leaflet-right {
+            margin-bottom: 118px;
+          }
+        `}</style>
+
         {/* Map — true edge-to-edge, no padding */}
-        <div className="absolute inset-0 overflow-hidden">
+        <div className="absolute inset-0 overflow-hidden tracking-zoom-fix">
           <MapContainer
             center={mapCenter}
             zoom={13}
             scrollWheelZoom
+            zoomControl={false}
             style={{ height: "100%", width: "100%" }}
           >
             <MapFixer />
@@ -666,6 +693,10 @@ export default function TrackingPage() {
               url={activeTile.url}
               attribution={activeTile.attribution}
             />
+
+            {/* Relocated zoom control — was default top-left, hidden behind
+                the floating device list panel. Now bottom-right. */}
+            <ZoomControl position="bottomright" />
 
             {flyTarget && <FlyTo position={flyTarget} />}
 
@@ -685,7 +716,12 @@ export default function TrackingPage() {
                   key={m.id}
                   position={[m.lat, m.lng]}
                   icon={buildDotIcon(m.status)}
-                  eventHandlers={{ click: () => setSelectedId(m.id) }}
+                  eventHandlers={{
+                    click: () => {
+                      setSelectedId(m.id);
+                      setCollapsed(true);
+                    },
+                  }}
                 >
                   <Popup>
                     <div className="text-xs font-bold">{m.name}</div>
@@ -739,7 +775,10 @@ export default function TrackingPage() {
             vehicles={vehicles}
             loading={isLoading}
             selectedId={selectedId}
-            onSelect={(v) => setSelectedId(v.id)}
+            onSelect={(v) => {
+              setSelectedId(v.id);
+              setCollapsed(true);
+            }}
             collapsed={collapsed}
             onToggle={() => setCollapsed((c) => !c)}
           />

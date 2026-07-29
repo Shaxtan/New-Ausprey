@@ -25,7 +25,7 @@ export const tokens = {
     },
   },
   radius: { sm: 8, md: 12, lg: 16, xl: 18 },
-  layout: { sidebarWidth: 264, sidebarCollapsed: 76, topbarHeight: 68 },
+  layout: { sidebarWidth: 240, sidebarCollapsed: 76, topbarHeight: 68 },
 };
 
 export default tokens;

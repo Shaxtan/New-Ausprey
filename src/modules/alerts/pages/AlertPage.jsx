@@ -582,8 +582,8 @@ export default function AlertsPage() {
     <div className="pb-10">
       <PageHeader
         crumbs={["Monitoring", "Alerts"]}
-        title="Alert Dashboard"
-        description="Monitor, prioritize, and review fleet alerts in real time."
+        // title="Alert Dashboard"
+        // description="Monitor, prioritize, and review fleet alerts in real time."
         actions={
           <div className="flex items-center gap-2">
             <Button variant="secondary" icon={SlidersHorizontal} onClick={scrollToFilter}>
