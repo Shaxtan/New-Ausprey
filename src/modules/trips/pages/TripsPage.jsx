@@ -29,7 +29,7 @@ export default function TripsPage() {
   );
   return (
     <div>
-      <PageHeader crumbs={['Operations','Trips']} title="Trip Dashboard" description="Monitor active and completed trips, assignments and live progress."
+      <PageHeader crumbs={['Operations','Trips']} title="" description=""
         actions={<><Button variant="secondary" icon={Download}>Export</Button><Button icon={Plus}>New Trip</Button></>}/>
       <TripStatsCards stats={stats.data} loading={stats.isLoading}/>
       <TripsTable data={filtered} loading={trips.isLoading} toolbar={toolbar} onRowClick={setSelected}/>

@@ -105,8 +105,8 @@ export default function GeofencePage() {
     <div>
       <PageHeader
         crumbs={["Monitoring", "Geofence"]}
-        title="Geofence Management"
-        description='Draw a zone on the map to create it — click "Draw Zone", then click-drag to size the circle.'
+        // title="Geofence Management"
+        // description='Draw a zone on the map to create it — click "Draw Zone", then click-drag to size the circle.'
       />
 
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 mb-5">

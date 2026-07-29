@@ -36,8 +36,8 @@ export default function VehiclesPage() {
     <div>
       <PageHeader
         crumbs={['Fleet', 'Vehicles']}
-        title="Vehicles"
-        description="Manage your entire vehicle inventory, status and assignments."
+        // title="Vehicles"
+        // description="Manage your entire vehicle inventory, status and assignments."
         actions={<><Button variant="secondary" icon={Upload}>Import</Button><Button icon={Plus}>Add Vehicle</Button></>}
       />
       <VehicleStatsCards stats={stats.data} loading={stats.isLoading} />

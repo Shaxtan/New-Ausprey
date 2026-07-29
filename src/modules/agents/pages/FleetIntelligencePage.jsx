@@ -207,8 +207,8 @@ export default function FleetIntelligencePage() {
     <div className="pb-10">
       <PageHeader
         crumbs={["Insights", "Fleet Intelligence"]}
-        title="Fleet Intelligence"
-        description="AI agents continuously scan your fleet data for quality, health, and priority issues."
+        // title="Fleet Intelligence"
+        // description="AI agents continuously scan your fleet data for quality, health, and priority issues."
         actions={
           <button
             onClick={() => refetch()}

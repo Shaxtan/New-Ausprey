@@ -8,6 +8,19 @@
  *  - Clicking a vehicle flies to its marker and opens popup
  *  - Fetches from POST /usage/reports/report/mapview?accid=<id>
  *  - Auto-refreshes every 3 minutes
+ *
+ * LAYOUT FIX 1 (this pass): default Leaflet zoom control was rendering
+ * top-left and getting hidden behind the floating sidebar. Disabled via
+ * `zoomControl: false` in the L.map() constructor and re-added manually
+ * with `L.control.zoom({ position: 'bottomright' })`.
+ *
+ * LAYOUT FIX 2 (this pass): the page sits inside the dashboard layout's
+ * padded content wrapper, leaving visible blank space on the left/right/
+ * bottom of the map. `-m-6` on the root element cancels that ancestor
+ * padding so the map fills the full content area edge-to-edge. This
+ * assumes the layout wrapper uses Tailwind's common `p-6` (24px) padding
+ * — if a sliver remains (or it overshoots), adjust this one class to
+ * match your layout's actual padding value.
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -301,9 +314,14 @@ export default function MapPage() {
       center: INDIA_CENTER,
       zoom: 6,
       maxZoom: 19,
-      zoomControl: true,
+      // Default zoom control (top-left) was hidden behind the floating
+      // sidebar — disabled here and re-added below at bottom-right.
+      zoomControl: false,
     });
     mapRef.current = map;
+
+    // Relocated zoom control.
+    L.control.zoom({ position: "bottomright" }).addTo(map);
 
     tileLayerRef.current = L.tileLayer(MAP_MODES[DEFAULT_MAP_MODE].url, {
       maxZoom: 19,
@@ -434,7 +452,7 @@ export default function MapPage() {
   );
 
   return (
-    <div className="flex flex-col h-[calc(100vh-64px)]">
+    <div className="flex flex-col h-[calc(100vh-64px)] -m-6">
       {/* Minimal header strip — tight padding, no wasted vertical space */}
       <div className="px-4 py-1.5 shrink-0 flex items-center justify-between border-b border-slate-100 bg-white">
         {/* Breadcrumb */}

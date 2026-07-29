@@ -12,14 +12,14 @@ import { SidebarNavItem } from './SidebarNavItem';
 function SupportCard() {
   return (
     <div className="p-3 shrink-0">
-      <div className="rounded-xl p-4 border border-sidebar-line" style={{ background: 'linear-gradient(135deg,#16243d,#1b2f4f)' }}>
-        <div className="flex items-center gap-2 mb-1.5">
+      {/* <div className="rounded-xl p-4 border border-sidebar-line" style={{ background: 'linear-gradient(135deg,#16243d,#1b2f4f)' }}> */}
+        {/* <div className="flex items-center gap-2 mb-1.5">
           <div className="w-7 h-7 rounded-lg flex items-center justify-center bg-primary"><LifeBuoy size={15} className="text-white" /></div>
           <span className="text-sm font-bold text-white">Need Help?</span>
-        </div>
-        <p className="text-xs leading-relaxed mb-3 text-sidebar-text">Our support team is here to help</p>
-        <button className="w-full text-xs font-semibold text-white py-2 rounded-lg bg-primary hover:bg-primary-hover transition">Contact Support</button>
-      </div>
+        </div> */}
+        {/* <p className="text-xs leading-relaxed mb-3 text-sidebar-text">Our support team is here to help</p> */}
+        {/* <button className="w-full text-xs font-semibold text-white py-2 rounded-lg bg-primary hover:bg-primary-hover transition">Contact Support</button> */}
+      {/* </div> */}
     </div>
   );
 }
@@ -31,9 +31,21 @@ const toggleGroup = (id) => setOpenGroups((g) => ({ ...g, [id]: !g[id] }));
 
   return (
     <div className="h-full flex flex-col bg-sidebar">
-      <div className={cn('flex items-center h-[68px] shrink-0 border-b border-sidebar-line', collapsed ? 'justify-center' : 'px-5')}>
-        <Logo compact={collapsed} />
-        {onClose && <button className="lg:hidden ml-auto text-slate-400" onClick={onClose}><X size={20} /></button>}
+      <div className={cn('relative flex items-center justify-center h-[68px] shrink-0 border-b border-sidebar-line', !collapsed && 'px-5')}>
+        {/* -translate-x-2 nudges the logo slightly left of true center.
+            Increase to -translate-x-3 / -translate-x-4 for more shift,
+            or drop it back to -translate-x-1 for a smaller nudge. Only
+            applied when expanded — the collapsed rail is 76px wide, so
+            shifting there risks clipping the glyph against the edge. */}
+        <Logo compact={collapsed} size={32} className={!collapsed ? '-translate-x-2' : undefined} />
+        {onClose && (
+          <button
+            className="lg:hidden absolute right-5 top-1/2 -translate-y-1/2 text-slate-400"
+            onClick={onClose}
+          >
+            <X size={40} />
+          </button>
+        )}
       </div>
 
       <nav className="flex-1 overflow-y-auto scrollbar-navy px-3 py-4 space-y-1">
