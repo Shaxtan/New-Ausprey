@@ -2,14 +2,14 @@
  * GeofenceMap.jsx — New-Ausprey
  *
  * Imperative Leaflet canvas for the Geofence page:
- *   - Renders every real geofence as a circle + popup (name/category/client/radius)
- *   - "Draw Zone" tool: click-drag to draw a new circle, release opens a
- *     popup form (name/category/client/mobile) that POSTs to the real
- *     createGeofence API on submit
+ *   - Renders every real geofence (CIRCLE or POLYGON) with a popup
+ *   - Two draw tools:
+ *       CIRCLE  — click-drag to size, OR a simple click (no drag) creates
+ *                 a zone with the DEFAULT_RADIUS (200 m)
+ *       POLYGON — click each vertex, then double-click / "Finish" to close
+ *   - Release/finish opens a popup form that POSTs to the real
+ *     createGeofence API
  *   - Exposes flyTo(id) via ref so the list panel can click-to-locate
- *
- * Ported from the reference project's mousedown/mousemove/mouseup drawing
- * flow, adapted to this app's Tailwind design system and real API service.
  */
 import {
   forwardRef,
@@ -20,7 +20,7 @@ import {
 } from "react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
-import { Pencil, X } from "lucide-react";
+import { Circle as CircleIcon, Hexagon, X, Check } from "lucide-react";
 import { cn } from "@/utils";
 import { MapStyleControl } from "@/components/maps";
 import { MAP_MODES, DEFAULT_MAP_MODE } from "@/utils/mapTiles";
@@ -36,12 +36,19 @@ L.Icon.Default.mergeOptions({
 const INDIA_CENTER = [22.5589, 75.6089];
 const ZONE_COLOR = "#2563eb";
 
+/** A plain click (no meaningful drag) creates a circle with this radius. */
+export const DEFAULT_RADIUS = 200; // metres
+/** Drag distance below this is treated as a click, not a drag. */
+const DRAG_THRESHOLD = 15; // metres
+/** Minimum vertices before a polygon can be finished. */
+const MIN_POLYGON_POINTS = 3;
+
 // ─── Popup form (raw DOM — Leaflet popups aren't React-rendered, but the
 // app's Tailwind utility classes still apply globally so we can use them). ──
-function buildFormHtml(radius) {
+function buildFormHtml(shapeType, sizeLabel) {
   return `
     <div class="min-w-[230px] p-1 font-sans">
-      <h4 class="text-sm font-bold text-slate-800 mb-2">New Geofence</h4>
+      <h4 class="text-sm font-bold text-slate-800 mb-2">New ${shapeType === "POLYGON" ? "Polygon" : "Circle"} Geofence</h4>
       <input id="gf-name" type="text" placeholder="Name (e.g. Warehouse Zone)"
         class="w-full mb-2 px-2.5 py-1.5 text-xs rounded-lg border border-slate-200 outline-none focus:border-primary" />
       <input id="gf-category" type="text" placeholder="Category (e.g. OFFICE)"
@@ -50,7 +57,7 @@ function buildFormHtml(radius) {
         class="w-full mb-2 px-2.5 py-1.5 text-xs rounded-lg border border-slate-200 outline-none focus:border-primary" />
       <input id="gf-mobile" type="text" placeholder="Mobile Number"
         class="w-full mb-2 px-2.5 py-1.5 text-xs rounded-lg border border-slate-200 outline-none focus:border-primary" />
-      <div class="text-[11px] text-slate-400 mb-2">Radius: ${Math.round(radius)}m</div>
+      <div class="text-[11px] text-slate-400 mb-2">${sizeLabel}</div>
       <div id="gf-error" class="text-[11px] text-rose-500 mb-2 hidden"></div>
       <div class="flex justify-end gap-1.5">
         <button id="gf-cancel" class="px-2.5 py-1.5 text-xs font-semibold rounded-lg bg-slate-100 text-slate-500 hover:bg-slate-200 transition">Cancel</button>
@@ -61,11 +68,15 @@ function buildFormHtml(radius) {
 }
 
 function popupContent(g) {
+  const isPolygon = g.type === "POLYGON";
+  const size = isPolygon
+    ? `${(g.location?.coordinates?.[0]?.length ?? 1) - 1} vertices`
+    : `Radius: ${g.radius ?? "—"}m`;
   return `
     <div class="p-1 font-sans min-w-[160px]">
       <div class="text-sm font-bold text-slate-800">${g.name ?? "Unnamed Zone"}</div>
       <div class="text-[11px] text-slate-500 mt-0.5">${g.category ?? "—"}${g.client ? ` · ${g.client}` : ""}</div>
-      <div class="text-[11px] text-slate-400 mt-1">Radius: ${g.radius ?? "—"}m</div>
+      <div class="text-[11px] text-slate-400 mt-1">${isPolygon ? "Polygon" : "Circle"} · ${size}</div>
     </div>
   `;
 }
@@ -78,28 +89,46 @@ export const GeofenceMap = forwardRef(function GeofenceMap(
   const mapRef = useRef(null);
   const layerRef = useRef(null);
   const tileLayerRef = useRef(null);
-  const circlesById = useRef({});
+  const shapesById = useRef({});
 
-  const [drawMode, setDrawMode] = useState(false);
-  const drawModeRef = useRef(false);
+  // 'circle' | 'polygon' | null
+  const [drawMode, setDrawMode] = useState(null);
+  const drawModeRef = useRef(null);
   useEffect(() => {
     drawModeRef.current = drawMode;
   }, [drawMode]);
 
   const [mapMode, setMapMode] = useState(DEFAULT_MAP_MODE);
 
+  // Circle drawing refs
   const isDrawingRef = useRef(false);
   const centerRef = useRef(null);
-  const tempCircleRef = useRef(null);
+  const tempShapeRef = useRef(null);
+
+  // Polygon drawing refs
+  const polyPointsRef = useRef([]);
+  const polyVertexMarkersRef = useRef([]);
+  const [polyCount, setPolyCount] = useState(0);
+  // finishPolygon is assigned inside the init effect but called from the
+  // React "Finish" button, so it lives in a ref.
+  const finishPolygonRef = useRef(null);
 
   // Expose flyTo(id) to the parent (list click → locate on map)
   useImperativeHandle(ref, () => ({
     flyTo: (id) => {
       const map = mapRef.current;
-      const circle = circlesById.current[id];
-      if (!map || !circle) return;
-      map.flyTo(circle.getLatLng(), 15, { animate: true, duration: 1.2 });
-      circle.openPopup();
+      const shape = shapesById.current[id];
+      if (!map || !shape) return;
+      if (shape.getBounds) {
+        map.flyToBounds(shape.getBounds(), {
+          padding: [60, 60],
+          maxZoom: 16,
+          duration: 1.2,
+        });
+      } else if (shape.getLatLng) {
+        map.flyTo(shape.getLatLng(), 15, { animate: true, duration: 1.2 });
+      }
+      shape.openPopup();
     },
   }));
 
@@ -110,6 +139,7 @@ export const GeofenceMap = forwardRef(function GeofenceMap(
       center: INDIA_CENTER,
       zoom: 5,
       zoomControl: false,
+      doubleClickZoom: false, // dbl-click finishes a polygon instead
     });
     tileLayerRef.current = L.tileLayer(MAP_MODES[DEFAULT_MAP_MODE].url, {
       attribution: "© OpenStreetMap",
@@ -121,45 +151,35 @@ export const GeofenceMap = forwardRef(function GeofenceMap(
     const disableInteractions = () => {
       map.dragging.disable();
       map.scrollWheelZoom.disable();
-      map.doubleClickZoom.disable();
       map.boxZoom.disable();
     };
     const enableInteractions = () => {
       map.dragging.enable();
       map.scrollWheelZoom.enable();
-      map.doubleClickZoom.enable();
       map.boxZoom.enable();
     };
 
-    const finishDrawing = () => {
-      if (!isDrawingRef.current) return;
-      isDrawingRef.current = false;
-      enableInteractions();
-      if (tempCircleRef.current) openCreatePopup(tempCircleRef.current);
-      centerRef.current = null;
-    };
-
-    const openCreatePopup = (circle) => {
-      const radius = circle.getRadius();
-      const latlng = circle.getLatLng();
-      circle.bindPopup(buildFormHtml(radius), {
+    // ── Shared: open the create form on a finished shape ──
+    const openCreatePopup = (shape, shapeType, geometry, sizeLabel) => {
+      shape.bindPopup(buildFormHtml(shapeType, sizeLabel), {
         closeOnClick: false,
         autoClose: false,
       });
-      circle.openPopup();
+      shape.openPopup();
 
-      circle.on("popupopen", () => {
+      shape.on("popupopen", () => {
         const doneBtn = document.getElementById("gf-done");
         const cancelBtn = document.getElementById("gf-cancel");
         const errEl = document.getElementById("gf-error");
 
-        if (cancelBtn) {
-          cancelBtn.onclick = () => {
-            circle.closePopup();
-            layerRef.current.removeLayer(circle);
-            tempCircleRef.current = null;
-          };
-        }
+        const cleanupTemp = () => {
+          shape.closePopup();
+          layerRef.current.removeLayer(shape);
+          tempShapeRef.current = null;
+        };
+
+        if (cancelBtn) cancelBtn.onclick = cleanupTemp;
+
         if (doneBtn) {
           doneBtn.onclick = async () => {
             const name = document.getElementById("gf-name")?.value?.trim();
@@ -184,24 +204,16 @@ export const GeofenceMap = forwardRef(function GeofenceMap(
               name,
               category: category || "GENERAL",
               client: client || "",
-              type: "CIRCLE",
+              type: shapeType,
               mobileno: mobile || "0",
               accid: accid ?? 1,
-              radius: Math.round(radius),
-              location: {
-                x: latlng.lng,
-                y: latlng.lat,
-                type: "Point",
-                coordinates: [latlng.lng, latlng.lat],
-              },
+              ...geometry,
             };
 
             try {
               await onCreate?.(payload);
-              circle.closePopup();
-              layerRef.current.removeLayer(circle); // real one will re-render from refetched list
-              tempCircleRef.current = null;
-              setDrawMode(false);
+              cleanupTemp(); // real one re-renders from the refetched list
+              setDrawMode(null);
             } catch {
               if (errEl) {
                 errEl.textContent = "Failed to save. Try again.";
@@ -215,37 +227,179 @@ export const GeofenceMap = forwardRef(function GeofenceMap(
       });
     };
 
+    // ── CIRCLE drawing ──
+    const finishCircle = () => {
+      if (!isDrawingRef.current) return;
+      isDrawingRef.current = false;
+      enableInteractions();
+
+      const circle = tempShapeRef.current;
+      centerRef.current = null;
+      if (!circle) return;
+
+      // A plain click (or a negligible drag) → use the default radius.
+      if (circle.getRadius() < DRAG_THRESHOLD) {
+        circle.setRadius(DEFAULT_RADIUS);
+      }
+
+      const radius = Math.round(circle.getRadius());
+      const latlng = circle.getLatLng();
+
+      openCreatePopup(
+        circle,
+        "CIRCLE",
+        {
+          radius,
+          location: {
+            x: latlng.lng,
+            y: latlng.lat,
+            type: "Point",
+            coordinates: [latlng.lng, latlng.lat],
+          },
+        },
+        `Radius: ${radius}m`,
+      );
+    };
+
+    // ── POLYGON drawing ──
+    const redrawPolygon = () => {
+      const pts = polyPointsRef.current;
+      if (tempShapeRef.current)
+        layerRef.current.removeLayer(tempShapeRef.current);
+      if (pts.length < 2) {
+        tempShapeRef.current = null;
+        return;
+      }
+      const shape =
+        pts.length >= MIN_POLYGON_POINTS
+          ? L.polygon(pts, {
+              color: ZONE_COLOR,
+              fillColor: ZONE_COLOR,
+              fillOpacity: 0.15,
+              weight: 2,
+            })
+          : L.polyline(pts, { color: ZONE_COLOR, weight: 2, dashArray: "5,5" });
+      shape.addTo(layerRef.current);
+      tempShapeRef.current = shape;
+    };
+
+    const addPolygonVertex = (latlng) => {
+      polyPointsRef.current.push(latlng);
+      const marker = L.circleMarker(latlng, {
+        radius: 4,
+        color: "#fff",
+        weight: 2,
+        fillColor: ZONE_COLOR,
+        fillOpacity: 1,
+      }).addTo(layerRef.current);
+      polyVertexMarkersRef.current.push(marker);
+      setPolyCount(polyPointsRef.current.length);
+      redrawPolygon();
+    };
+
+    const clearPolygonVertexMarkers = () => {
+      polyVertexMarkersRef.current.forEach((m) =>
+        layerRef.current.removeLayer(m),
+      );
+      polyVertexMarkersRef.current = [];
+    };
+
+    const resetPolygonState = () => {
+      polyPointsRef.current = [];
+      clearPolygonVertexMarkers();
+      setPolyCount(0);
+    };
+
+    const finishPolygon = () => {
+      const pts = polyPointsRef.current;
+      if (pts.length < MIN_POLYGON_POINTS) return;
+
+      redrawPolygon();
+      const polygon = tempShapeRef.current;
+      clearPolygonVertexMarkers();
+      polyPointsRef.current = [];
+      setPolyCount(0);
+      if (!polygon) return;
+
+      // GeoJSON Polygon: [[ [lng,lat], …, first point repeated to close ]]
+      const ring = pts.map((p) => [p.lng, p.lat]);
+      ring.push([pts[0].lng, pts[0].lat]);
+      const center = polygon.getBounds().getCenter();
+
+      openCreatePopup(
+        polygon,
+        "POLYGON",
+        {
+          radius: 0,
+          location: {
+            x: center.lng,
+            y: center.lat,
+            type: "Polygon",
+            coordinates: [ring],
+          },
+        },
+        `${pts.length} vertices`,
+      );
+    };
+    finishPolygonRef.current = finishPolygon;
+
+    // ── Map event handlers ──
     const handleMouseDown = (e) => {
-      if (!drawModeRef.current) return;
+      if (drawModeRef.current !== "circle") return;
       isDrawingRef.current = true;
       centerRef.current = e.latlng;
       disableInteractions();
       const circle = L.circle(e.latlng, {
-        radius: 10,
+        radius: 0,
         color: ZONE_COLOR,
         fillColor: ZONE_COLOR,
         fillOpacity: 0.15,
         weight: 2,
       }).addTo(layerRef.current);
-      tempCircleRef.current = circle;
+      tempShapeRef.current = circle;
     };
+
     const handleMouseMove = (e) => {
-      if (!isDrawingRef.current || !tempCircleRef.current || !centerRef.current)
+      if (
+        drawModeRef.current !== "circle" ||
+        !isDrawingRef.current ||
+        !tempShapeRef.current ||
+        !centerRef.current
+      )
         return;
-      tempCircleRef.current.setRadius(
-        map.distance(centerRef.current, e.latlng),
-      );
+      tempShapeRef.current.setRadius(map.distance(centerRef.current, e.latlng));
     };
-    const handleMouseUp = () => finishDrawing();
+
+    const handleMouseUp = () => {
+      if (drawModeRef.current !== "circle") return;
+      finishCircle();
+    };
+
+    const handleClick = (e) => {
+      if (drawModeRef.current !== "polygon") return;
+      addPolygonVertex(e.latlng);
+    };
+
+    const handleDblClick = () => {
+      if (drawModeRef.current !== "polygon") return;
+      finishPolygon();
+    };
 
     map.on("mousedown", handleMouseDown);
     map.on("mousemove", handleMouseMove);
     map.on("mouseup", handleMouseUp);
+    map.on("click", handleClick);
+    map.on("dblclick", handleDblClick);
+
+    // Expose a reset so the toggle buttons can abort a partial polygon
+    map._resetPolygonState = resetPolygonState;
 
     return () => {
       map.off("mousedown", handleMouseDown);
       map.off("mousemove", handleMouseMove);
       map.off("mouseup", handleMouseUp);
+      map.off("click", handleClick);
+      map.off("dblclick", handleDblClick);
       map.remove();
       mapRef.current = null;
     };
@@ -263,27 +417,47 @@ export const GeofenceMap = forwardRef(function GeofenceMap(
       layer = layerRef.current;
     if (!map || !layer) return;
 
-    // Clear only the "existing zone" circles (not an in-progress temp circle)
-    Object.values(circlesById.current).forEach((c) => layer.removeLayer(c));
-    circlesById.current = {};
+    Object.values(shapesById.current).forEach((s) => layer.removeLayer(s));
+    shapesById.current = {};
 
     const bounds = [];
     for (const g of geofences) {
       const coords = g.location?.coordinates;
-      if (!coords || coords.length < 2) continue;
-      const [lng, lat] = coords;
-      if (!lat || !lng) continue;
+      if (!coords) continue;
 
-      const circle = L.circle([lat, lng], {
-        radius: g.radius || 100,
-        color: ZONE_COLOR,
-        fillColor: ZONE_COLOR,
-        fillOpacity: 0.15,
-        weight: 2,
-      }).addTo(layer);
-      circle.bindPopup(popupContent(g));
-      circlesById.current[g.id] = circle;
-      bounds.push([lat, lng]);
+      let shape = null;
+
+      if (g.type === "POLYGON" || g.location?.type === "Polygon") {
+        // GeoJSON ring(s): [[ [lng,lat], … ]] → Leaflet wants [lat,lng]
+        const ring = Array.isArray(coords[0]?.[0]) ? coords[0] : coords;
+        const latLngs = ring
+          .filter((p) => Array.isArray(p) && p.length >= 2)
+          .map(([lng, lat]) => [lat, lng]);
+        if (latLngs.length < 3) continue;
+        shape = L.polygon(latLngs, {
+          color: ZONE_COLOR,
+          fillColor: ZONE_COLOR,
+          fillOpacity: 0.15,
+          weight: 2,
+        }).addTo(layer);
+        latLngs.forEach((p) => bounds.push(p));
+      } else {
+        if (coords.length < 2) continue;
+        const [lng, lat] = coords;
+        if (!lat || !lng) continue;
+        shape = L.circle([lat, lng], {
+          radius: g.radius || DEFAULT_RADIUS,
+          color: ZONE_COLOR,
+          fillColor: ZONE_COLOR,
+          fillOpacity: 0.15,
+          weight: 2,
+        }).addTo(layer);
+        bounds.push([lat, lng]);
+      }
+
+      if (!shape) continue;
+      shape.bindPopup(popupContent(g));
+      shapesById.current[g.id] = shape;
     }
 
     if (bounds.length > 0 && !mapRef.current._userMoved) {
@@ -302,6 +476,17 @@ export const GeofenceMap = forwardRef(function GeofenceMap(
     return () => map.off("dragstart", flag);
   }, []);
 
+  // ── Toggle helpers ──
+  const selectMode = (mode) => {
+    // Abort any partially-drawn polygon when switching/cancelling
+    mapRef.current?._resetPolygonState?.();
+    if (tempShapeRef.current) {
+      layerRef.current?.removeLayer(tempShapeRef.current);
+      tempShapeRef.current = null;
+    }
+    setDrawMode((prev) => (prev === mode ? null : mode));
+  };
+
   return (
     <div
       className="relative rounded-2xl overflow-hidden border border-slate-200"
@@ -313,20 +498,45 @@ export const GeofenceMap = forwardRef(function GeofenceMap(
         style={{ cursor: drawMode ? "crosshair" : "grab" }}
       />
 
-      {/* Draw toggle */}
-      <button
-        onClick={() => setDrawMode((v) => !v)}
-        disabled={creating}
-        className={cn(
-          "absolute top-4 left-4 z-[1000] flex items-center gap-2 px-3.5 py-2 rounded-xl text-sm font-bold shadow-lg transition",
-          drawMode
-            ? "bg-primary text-white"
-            : "bg-white text-slate-600 hover:bg-slate-50",
+      {/* Draw tool toggles */}
+      <div className="absolute top-4 left-4 z-[1000] flex items-center gap-2">
+        <button
+          onClick={() => selectMode("circle")}
+          disabled={creating}
+          className={cn(
+            "flex items-center gap-2 px-3.5 py-2 rounded-xl text-sm font-bold shadow-lg transition",
+            drawMode === "circle"
+              ? "bg-primary text-white"
+              : "bg-white text-slate-600 hover:bg-slate-50",
+          )}
+        >
+          {drawMode === "circle" ? <X size={14} /> : <CircleIcon size={14} />}
+          {drawMode === "circle" ? "Cancel" : "Circle"}
+        </button>
+
+        <button
+          onClick={() => selectMode("polygon")}
+          disabled={creating}
+          className={cn(
+            "flex items-center gap-2 px-3.5 py-2 rounded-xl text-sm font-bold shadow-lg transition",
+            drawMode === "polygon"
+              ? "bg-primary text-white"
+              : "bg-white text-slate-600 hover:bg-slate-50",
+          )}
+        >
+          {drawMode === "polygon" ? <X size={14} /> : <Hexagon size={14} />}
+          {drawMode === "polygon" ? "Cancel" : "Polygon"}
+        </button>
+
+        {drawMode === "polygon" && polyCount >= MIN_POLYGON_POINTS && (
+          <button
+            onClick={() => finishPolygonRef.current?.()}
+            className="flex items-center gap-2 px-3.5 py-2 rounded-xl text-sm font-bold shadow-lg bg-emerald-500 text-white hover:bg-emerald-600 transition"
+          >
+            <Check size={14} /> Finish ({polyCount})
+          </button>
         )}
-      >
-        {drawMode ? <X size={14} /> : <Pencil size={14} />}
-        {drawMode ? "Cancel Drawing" : "Draw Zone"}
-      </button>
+      </div>
 
       <MapStyleControl
         value={mapMode}
@@ -335,9 +545,21 @@ export const GeofenceMap = forwardRef(function GeofenceMap(
       />
 
       {drawMode && (
-        <div className="absolute top-16 left-4 z-[1000] bg-white/95 backdrop-blur px-3 py-2 rounded-xl shadow-lg text-[11px] text-slate-500 max-w-[220px]">
-          Click and drag on the map to draw a circular zone, then release to
-          name and save it.
+        <div className="absolute top-16 left-4 z-[1000] bg-white/95 backdrop-blur px-3 py-2 rounded-xl shadow-lg text-[11px] text-slate-500 max-w-[260px]">
+          {drawMode === "circle" ? (
+            <>
+              <strong className="text-slate-700">Circle:</strong> drag to size
+              the zone, or just{" "}
+              <strong className="text-slate-700">click</strong> to place one
+              with the default {DEFAULT_RADIUS}m radius.
+            </>
+          ) : (
+            <>
+              <strong className="text-slate-700">Polygon:</strong> click each
+              corner, then double-click (or press Finish) to close the shape.
+              Minimum {MIN_POLYGON_POINTS} points.
+            </>
+          )}
         </div>
       )}
     </div>

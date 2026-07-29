@@ -14,7 +14,7 @@
  * intentionally not offered on the list — only create + view.
  */
 import { useMemo, useRef, useState } from "react";
-import { Search, MapPin, Layers, Radar, Ruler } from "lucide-react";
+import { Search, MapPin, Hexagon, Radar, Ruler } from "lucide-react";
 import { PageHeader, KpiCard, Trend } from "@/components/common";
 import { formatNumber } from "@/utils";
 import { useAccountStore } from "@/store";
@@ -67,12 +67,21 @@ export default function GeofencePage() {
       trend: <Trend value="From your account" neutral />,
     },
     {
-      icon: Layers,
+      icon: Hexagon,
       iconBg: "#f5f3ff",
       iconColor: "#8b5cf6",
-      label: "Categories",
-      value: formatNumber(stats.categories),
-      trend: <Trend value="Unique categories" neutral />,
+      label: "Polygon Zones",
+      value: formatNumber(stats.polygonZones),
+      trend: (
+        <Trend
+          value={
+            stats.total
+              ? `${((stats.polygonZones / stats.total) * 100).toFixed(0)}% of total`
+              : "—"
+          }
+          neutral
+        />
+      ),
     },
     {
       icon: Radar,
@@ -97,7 +106,7 @@ export default function GeofencePage() {
       iconColor: "#f59e0b",
       label: "Avg. Radius",
       value: stats.avgRadius ? `${formatNumber(stats.avgRadius)}m` : "—",
-      trend: <Trend value="Across all zones" neutral />,
+      trend: <Trend value="Circle zones only" neutral />,
     },
   ];
 
@@ -106,7 +115,7 @@ export default function GeofencePage() {
       <PageHeader
         crumbs={["Monitoring", "Geofence"]}
         title="Geofence Management"
-        description='Draw a zone on the map to create it — click "Draw Zone", then click-drag to size the circle.'
+        description="Create zones on the map — Circle (drag to size, or click for a 200m default) or Polygon (click each corner)."
       />
 
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 mb-5">

@@ -42,10 +42,15 @@ export const useCreateGeofence = () => {
 export function deriveGeofenceStats(geofences = []) {
   const total = geofences.length;
   const categories = new Set(geofences.map((g) => g.category).filter(Boolean));
-  const circleZones = geofences.filter(
-    (g) => g.type === "CIRCLE" || g.radius != null,
-  ).length;
+
+  const isPolygon = (g) =>
+    g.type === "POLYGON" || g.location?.type === "Polygon";
+  const polygonZones = geofences.filter(isPolygon).length;
+  const circleZones = total - polygonZones;
+
+  // Average radius only makes sense for circles
   const radii = geofences
+    .filter((g) => !isPolygon(g))
     .map((g) => Number(g.radius))
     .filter((r) => Number.isFinite(r) && r > 0);
   const avgRadius = radii.length
@@ -56,6 +61,7 @@ export function deriveGeofenceStats(geofences = []) {
     total,
     categories: categories.size,
     circleZones,
+    polygonZones,
     avgRadius,
   };
 }
