@@ -101,13 +101,41 @@ const toggleGroup = (id) => setOpenGroups((g) => ({ ...g, [id]: !g[id] }));
 export function Sidebar() {
   const { sidebarCollapsed, mobileSidebarOpen, closeMobileSidebar } = useUIStore();
   const { sidebarWidth, sidebarCollapsed: collapsedWidth } = tokens.layout;
-  const width = sidebarCollapsed ? collapsedWidth : sidebarWidth;
+
+  // Hover-to-expand — purely local, visual-only state. It never touches
+  // the persisted `sidebarCollapsed` preference in the store: when the
+  // user has manually collapsed the sidebar, hovering over the collapsed
+  // rail temporarily expands it, and moving the mouse away collapses it
+  // back. If the sidebar is already expanded, hover has no effect.
+  //
+  // Page content reflows automatically — no changes needed in
+  // DashboardLayout.jsx. The <aside> below is a real flex item
+  // (shrink-0) sitting next to the flex-1 content area; when its width
+  // changes, flexbox resizes the content area to match, for free.
+  const [hovering, setHovering] = useState(false);
+  const effectiveCollapsed = sidebarCollapsed && !hovering;
+  const width = effectiveCollapsed ? collapsedWidth : sidebarWidth;
+
+  const handleMouseEnter = () => {
+    if (sidebarCollapsed) setHovering(true);
+  };
+  const handleMouseLeave = () => setHovering(false);
 
   return (
     <>
-      <aside className="hidden lg:block shrink-0 transition-all duration-300" style={{ width }}>
-        <div className="fixed top-0 left-0 h-screen transition-all duration-300" style={{ width }}>
-          <SidebarContent collapsed={sidebarCollapsed} />
+      <aside
+        className="hidden lg:block shrink-0 transition-all duration-300"
+        style={{ width }}
+        onMouseEnter={handleMouseEnter}
+        onMouseLeave={handleMouseLeave}
+      >
+        <div
+          className="fixed top-0 left-0 h-screen transition-all duration-300"
+          style={{ width }}
+          onMouseEnter={handleMouseEnter}
+          onMouseLeave={handleMouseLeave}
+        >
+          <SidebarContent collapsed={effectiveCollapsed} />
         </div>
       </aside>
 
