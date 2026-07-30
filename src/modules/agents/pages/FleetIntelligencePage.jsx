@@ -206,7 +206,7 @@ export default function FleetIntelligencePage() {
   return (
     <div className="pb-10">
       <PageHeader
-        crumbs={["Insights", "Fleet Intelligence"]}
+        crumbs={["Home", "Fleet Intelligence"]}
         // title="Fleet Intelligence"
         // description="AI agents continuously scan your fleet data for quality, health, and priority issues."
         actions={
