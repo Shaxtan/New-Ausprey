@@ -16,13 +16,22 @@
  * UX FIX (previous pass): selecting a vehicle from the sidebar or a map
  * marker now also auto-collapses the sidebar.
  *
- * LAYOUT FIX 2 (this pass): the page was sitting inside the dashboard
+ * LAYOUT FIX 2 (previous pass): the page was sitting inside the dashboard
  * layout's padded content wrapper, leaving a visible margin of blank
  * space on the left/right/bottom of the map. `-m-6` on the root element
  * cancels out that ancestor padding so the map fills the full content
- * area edge-to-edge. This assumes the layout wrapper uses Tailwind's
- * common `p-6` (24px) padding — if a gap remains (or it overshoots),
- * adjust this single class to match your actual layout padding.
+ * area edge-to-edge.
+ *
+ * LAYOUT FIX 3 (this pass): Leaflet's internal panes and zoom control
+ * carry very high z-index values (roughly 400–1000+), and this page's
+ * root element wasn't establishing its own stacking context — so those
+ * values were escaping up to the same global stacking layer as the app's
+ * navbar dropdown, letting the map render on top of it. Added `isolate`
+ * (isolation: isolate) to the root element so every z-index used inside
+ * this page — Leaflet's own, plus this page's z-[900]/[1001] overlays —
+ * is contained within this page's box and can never render above
+ * sibling chrome like the navbar, regardless of how high those numbers
+ * get bumped in the future.
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -650,7 +659,7 @@ export default function TrackingPage() {
   const activeTile = MAP_MODES[mapMode];
 
   return (
-    <div className="flex flex-col h-[calc(100vh-64px)] -m-6">
+    <div className="flex flex-col h-[calc(100vh-64px)] -m-6 isolate">
       {/* ── Minimal header strip ── */}
       <div className="px-4 py-1.5 shrink-0 flex items-center justify-between border-b border-slate-100 bg-white">
         <nav className="flex items-center gap-1.5 text-xs text-slate-400">

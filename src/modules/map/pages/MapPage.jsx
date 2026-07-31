@@ -9,18 +9,25 @@
  *  - Fetches from POST /usage/reports/report/mapview?accid=<id>
  *  - Auto-refreshes every 3 minutes
  *
- * LAYOUT FIX 1 (this pass): default Leaflet zoom control was rendering
+ * LAYOUT FIX 1 (previous pass): default Leaflet zoom control was rendering
  * top-left and getting hidden behind the floating sidebar. Disabled via
  * `zoomControl: false` in the L.map() constructor and re-added manually
  * with `L.control.zoom({ position: 'bottomright' })`.
  *
- * LAYOUT FIX 2 (this pass): the page sits inside the dashboard layout's
+ * LAYOUT FIX 2 (previous pass): the page sits inside the dashboard layout's
  * padded content wrapper, leaving visible blank space on the left/right/
  * bottom of the map. `-m-6` on the root element cancels that ancestor
- * padding so the map fills the full content area edge-to-edge. This
- * assumes the layout wrapper uses Tailwind's common `p-6` (24px) padding
- * — if a sliver remains (or it overshoots), adjust this one class to
- * match your layout's actual padding value.
+ * padding so the map fills the full content area edge-to-edge.
+ *
+ * LAYOUT FIX 3 (this pass): same class of bug as TrackingPage.jsx and
+ * TrackPlayPage.jsx — Leaflet's internal panes/zoom-control z-index
+ * values (roughly 400–1000+) were escaping this page's box because the
+ * root element didn't establish its own stacking context, letting the
+ * map render on top of sibling app chrome like the navbar's dropdown.
+ * Added `isolate` (isolation: isolate) to the root element so every
+ * z-index used inside this page — Leaflet's own, plus this page's
+ * z-[1000]/[1001] overlays — is contained within this page's box and
+ * can never render above UI outside this page.
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -452,7 +459,7 @@ export default function MapPage() {
   );
 
   return (
-    <div className="flex flex-col h-[calc(100vh-64px)] -m-6">
+    <div className="flex flex-col h-[calc(100vh-64px)] -m-6 isolate">
       {/* Minimal header strip — tight padding, no wasted vertical space */}
       <div className="px-4 py-1.5 shrink-0 flex items-center justify-between border-b border-slate-100 bg-white">
         {/* Breadcrumb */}
