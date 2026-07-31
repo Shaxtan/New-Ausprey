@@ -59,6 +59,9 @@ function buildFormHtml(shapeType, sizeLabel) {
         class="w-full mb-2 px-2.5 py-1.5 text-xs rounded-lg border border-slate-200 outline-none focus:border-primary" />
       <div class="text-[11px] text-slate-400 mb-2">${sizeLabel}</div>
       <div id="gf-error" class="text-[11px] text-rose-500 mb-2 hidden"></div>
+      <button id="gf-fallback" class="hidden w-full mb-2 px-2.5 py-1.5 text-xs font-bold rounded-lg bg-amber-100 text-amber-800 hover:bg-amber-200 transition">
+        Save as enclosing circle instead
+      </button>
       <div class="flex justify-end gap-1.5">
         <button id="gf-cancel" class="px-2.5 py-1.5 text-xs font-semibold rounded-lg bg-slate-100 text-slate-500 hover:bg-slate-200 transition">Cancel</button>
         <button id="gf-done" class="px-2.5 py-1.5 text-xs font-bold rounded-lg bg-primary text-white hover:bg-primary-hover transition">Save Zone</button>
@@ -160,71 +163,140 @@ export const GeofenceMap = forwardRef(function GeofenceMap(
     };
 
     // ── Shared: open the create form on a finished shape ──
-    const openCreatePopup = (shape, shapeType, geometry, sizeLabel) => {
+    const openCreatePopup = (
+      shape,
+      shapeType,
+      geometry,
+      sizeLabel,
+      fallbackGeometry = null,
+    ) => {
+      // Stop drawing while the form is open, otherwise clicks inside the
+      // popup would keep adding polygon vertices behind it.
+      drawModeRef.current = null;
+
       shape.bindPopup(buildFormHtml(shapeType, sizeLabel), {
         closeOnClick: false,
         autoClose: false,
+        closeButton: false,
       });
-      shape.openPopup();
 
-      shape.on("popupopen", () => {
-        const doneBtn = document.getElementById("gf-done");
-        const cancelBtn = document.getElementById("gf-cancel");
-        const errEl = document.getElementById("gf-error");
+      const cleanupTemp = () => {
+        shape.closePopup();
+        layerRef.current?.removeLayer(shape);
+        tempShapeRef.current = null;
+        setDrawMode(null);
+      };
 
-        const cleanupTemp = () => {
-          shape.closePopup();
-          layerRef.current.removeLayer(shape);
-          tempShapeRef.current = null;
+      // IMPORTANT: register the handler BEFORE openPopup() — otherwise the
+      // popupopen event fires first and the buttons never get wired up.
+      shape.once("popupopen", (ev) => {
+        const root = ev.popup.getElement();
+        if (!root) return;
+
+        // Keep clicks/scrolls inside the form from reaching the map handlers
+        L.DomEvent.disableClickPropagation(root);
+        L.DomEvent.disableScrollPropagation(root);
+
+        const q = (id) => root.querySelector(`#${id}`);
+        const doneBtn = q("gf-done");
+        const cancelBtn = q("gf-cancel");
+        const errEl = q("gf-error");
+
+        const showError = (msg) => {
+          if (!errEl) return;
+          errEl.textContent = msg;
+          errEl.classList.remove("hidden");
         };
 
-        if (cancelBtn) cancelBtn.onclick = cleanupTemp;
+        if (cancelBtn) {
+          L.DomEvent.on(cancelBtn, "click", (e) => {
+            L.DomEvent.stop(e);
+            cleanupTemp();
+          });
+        }
 
         if (doneBtn) {
-          doneBtn.onclick = async () => {
-            const name = document.getElementById("gf-name")?.value?.trim();
-            const category = document
-              .getElementById("gf-category")
-              ?.value?.trim();
-            const client = document.getElementById("gf-client")?.value?.trim();
-            const mobile = document.getElementById("gf-mobile")?.value?.trim();
+          L.DomEvent.on(doneBtn, "click", async (e) => {
+            L.DomEvent.stop(e);
+
+            const name = q("gf-name")?.value?.trim();
+            const category = q("gf-category")?.value?.trim();
+            const client = q("gf-client")?.value?.trim();
+            const mobile = q("gf-mobile")?.value?.trim();
 
             if (!name) {
-              if (errEl) {
-                errEl.textContent = "Name is required.";
-                errEl.classList.remove("hidden");
-              }
+              showError("Name is required.");
               return;
             }
 
-            doneBtn.disabled = true;
-            doneBtn.textContent = "Saving…";
-
-            const payload = {
+            const buildPayload = (geom, type) => ({
               name,
               category: category || "GENERAL",
-              client: client || "",
-              type: shapeType,
+              client: client || "DEFAULT",
+              type,
               mobileno: mobile || "0",
               accid: accid ?? 1,
-              ...geometry,
+              ...geom,
+            });
+
+            const submit = async (geom, type, label) => {
+              doneBtn.disabled = true;
+              doneBtn.textContent = "Saving…";
+              const payload = buildPayload(geom, type);
+              try {
+                await onCreate?.(payload);
+                cleanupTemp();
+                return true;
+              } catch (err) {
+                const res = err?.response;
+                const isRedirectOrBlocked = !res;
+                const serverMsg =
+                  res?.data?.message || res?.data?.error || err?.message;
+
+                console.error(`Geofence create failed (${label}):`, {
+                  status: res?.status,
+                  response: res?.data,
+                  payloadSent: payload,
+                  likelyCause: isRedirectOrBlocked
+                    ? "No response — server redirected (302 → /login) or blocked the request."
+                    : "Server responded with an error.",
+                });
+
+                showError(
+                  isRedirectOrBlocked
+                    ? "Server rejected this shape (redirected to login)."
+                    : serverMsg
+                      ? `Failed: ${serverMsg}`
+                      : "Failed to save. Try again.",
+                );
+                doneBtn.disabled = false;
+                doneBtn.textContent = "Save Zone";
+                return false;
+              }
             };
 
-            try {
-              await onCreate?.(payload);
-              cleanupTemp(); // real one re-renders from the refetched list
-              setDrawMode(null);
-            } catch {
-              if (errEl) {
-                errEl.textContent = "Failed to save. Try again.";
-                errEl.classList.remove("hidden");
+            const ok = await submit(geometry, shapeType, shapeType);
+
+            // If a POLYGON was rejected, offer to store it as the smallest
+            // circle that encloses it — the backend's `location` model looks
+            // Point-only, so this keeps the tool usable. The user opts in;
+            // nothing is silently substituted.
+            if (!ok && fallbackGeometry) {
+              const fb = q("gf-fallback");
+              if (fb) {
+                fb.classList.remove("hidden");
+                fb.onclick = async (ev) => {
+                  L.DomEvent.stop(ev);
+                  fb.disabled = true;
+                  await submit(fallbackGeometry, "CIRCLE", "CIRCLE fallback");
+                };
               }
-              doneBtn.disabled = false;
-              doneBtn.textContent = "Save Zone";
             }
-          };
+          });
         }
       });
+
+      shape.openPopup();
     };
 
     // ── CIRCLE drawing ──
@@ -326,6 +398,23 @@ export const GeofenceMap = forwardRef(function GeofenceMap(
       ring.push([pts[0].lng, pts[0].lat]);
       const center = polygon.getBounds().getCenter();
 
+      // Fallback: the smallest circle centred on the polygon that encloses
+      // every vertex. Offered if the backend rejects the polygon geometry
+      // (its `location` object exposes scalar x/y, which suggests it may
+      // only model Point + radius — i.e. circles).
+      const enclosingRadius = Math.ceil(
+        Math.max(...pts.map((p) => map.distance(center, p))),
+      );
+      const fallbackGeometry = {
+        radius: enclosingRadius,
+        location: {
+          x: center.lng,
+          y: center.lat,
+          type: "Point",
+          coordinates: [center.lng, center.lat],
+        },
+      };
+
       openCreatePopup(
         polygon,
         "POLYGON",
@@ -339,6 +428,7 @@ export const GeofenceMap = forwardRef(function GeofenceMap(
           },
         },
         `${pts.length} vertices`,
+        fallbackGeometry,
       );
     };
     finishPolygonRef.current = finishPolygon;
