@@ -55,7 +55,6 @@ export const useAccountStore = create((set, get) => ({
         type: a.type,
         parentAccountId: a.parentAccountId,
         status: a.status,
-        vehicles: 0,
       }));
 
       // Prefer the account the user actually logged in with; fall back to first.
