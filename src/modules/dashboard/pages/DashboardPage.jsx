@@ -33,6 +33,7 @@ export default function DashboardPage() {
   const summary = data?.summary ?? null;
   const live = summary?.live ?? null;
   const vtsRaw = data?.VTS?.available ?? [];
+  const elkRaw = data?.ELK?.available ?? [];
   const total = summary?.totalVehicles ?? 0;
 
   const pctOfTotal = (n) =>
@@ -96,8 +97,8 @@ export default function DashboardPage() {
     <div>
       <PageHeader
         crumbs={["Home", "Dashboard"]}
-        // title="Fleet Overview"
-        // description="Real-time insights and intelligence across your fleet"
+        title="Fleet Overview"
+        description="Real-time insights and intelligence across your fleet"
       />
 
       {/* ── Fleet summary cards ── */}
@@ -123,6 +124,7 @@ export default function DashboardPage() {
         </div>
       </div>
 
+      {/* ── Fleet utilization + top accounts by distance ── */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-5">
         <FleetUtilizationCard
           points={utilizationQuery.data?.points ?? []}
@@ -136,11 +138,13 @@ export default function DashboardPage() {
         />
       </div>
 
-      {/* ── Live vehicles / unreachable tables ── */}
+      {/* ── Live vehicles / padlock / unreachable tables ── */}
       <FleetTableCard
         vtsData={vtsRaw}
+        elkData={elkRaw}
         unreachableData={unreachableQuery.data ?? []}
         loadingVts={isLoading}
+        loadingElk={isLoading}
         loadingUnreachable={unreachableQuery.isLoading}
       />
     </div>

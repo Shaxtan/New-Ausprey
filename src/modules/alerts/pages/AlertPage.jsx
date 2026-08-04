@@ -874,8 +874,8 @@ export default function AlertsPage() {
                           "Location",
                           "Triggered At",
                           "Status",
-                          "Assigned To",
-                          "ETA",
+                          // "Assigned To",
+                          // "ETA",
                           "",
                         ].map((h) => (
                           <th
@@ -975,13 +975,13 @@ export default function AlertsPage() {
                               </span>
                             </td>
                             {/* Assigned To */}
-                            <td className="px-4 py-3 whitespace-nowrap text-slate-600">
+                            {/* <td className="px-4 py-3 whitespace-nowrap text-slate-600">
                               {assignedTo}
-                            </td>
+                            </td> */}
                             {/* ETA */}
-                            <td className="px-4 py-3 whitespace-nowrap font-semibold text-slate-600">
+                            {/* <td className="px-4 py-3 whitespace-nowrap font-semibold text-slate-600">
                               {etaText}
-                            </td>
+                            </td> */}
                             {/* Actions: track (standalone) + kebab (triage/reassign) */}
                             <td className="px-4 py-3 whitespace-nowrap">
                               <div className="flex items-center gap-1">

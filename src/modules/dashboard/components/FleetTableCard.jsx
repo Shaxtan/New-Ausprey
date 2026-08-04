@@ -1,8 +1,9 @@
 /**
  * FleetTableCard.jsx  — New-Ausprey Dashboard
  *
- * Displays two tabs:
+ * Displays three tabs:
  *   • VTS  — live vehicles from the dashboard API (VTS.available)
+ *   • Padlock — ELK lock devices from the dashboard API (ELK.available)
  *   • Unreachable — devices from the unreachable API
  *
  * Mirrors the old Ausprey "Projects" table functionality with the
@@ -17,6 +18,10 @@ import {
   CheckCircle,
   XCircle,
   Loader2,
+  Lock,
+  LockOpen,
+  LockKeyhole,
+  ShieldAlert,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Card, Tabs, Skeleton } from "@/components/ui";
@@ -74,6 +79,66 @@ function StatusChip({ status }) {
       )}
     >
       <span className={cn("w-1.5 h-1.5 rounded-full", m.dot)} />
+      {m.label}
+    </span>
+  );
+}
+
+// ─── Padlock (ELK) lock-status helpers ────────────────────────────────────────
+// The ELK payload reports lock state via `type`:
+//   "L"   → Locked      "U"   → Unlocked
+//   "CTL" → Command-to-Lock (pending)
+//   "SCL" → Sensor/Case tamper alert
+// `lock` (1/0) is the fallback when `type` is missing or unrecognised.
+const LOCK_META = {
+  locked: {
+    label: "Locked",
+    color: "text-emerald-600 bg-emerald-50",
+    dot: "bg-emerald-500",
+    Icon: Lock,
+  },
+  unlocked: {
+    label: "Unlocked",
+    color: "text-rose-600 bg-rose-50",
+    dot: "bg-rose-500",
+    Icon: LockOpen,
+  },
+  pending: {
+    label: "Pending Lock",
+    color: "text-blue-600 bg-blue-50",
+    dot: "bg-blue-500",
+    Icon: LockKeyhole,
+  },
+  tamper: {
+    label: "Tamper Alert",
+    color: "text-amber-600 bg-amber-50",
+    dot: "bg-amber-400",
+    Icon: ShieldAlert,
+  },
+};
+
+function getLockState(item) {
+  const t = (item.type ?? "").toUpperCase();
+  if (t === "L") return "locked";
+  if (t === "U") return "unlocked";
+  if (t === "CTL") return "pending";
+  if (t === "SCL") return "tamper";
+  // Fallback to the numeric `lock` flag when `type` is absent/unknown
+  return Number(item.lock) === 1 ? "locked" : "unlocked";
+}
+
+function LockChip({ state }) {
+  const m = LOCK_META[state] ?? LOCK_META.unlocked;
+  const { Icon } = m;
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-semibold",
+        m.color,
+      )}
+      title={m.label}
+    >
+      <Icon size={11} />
       {m.label}
     </span>
   );
@@ -419,6 +484,133 @@ function VtsTable({ rows, loading, onImeiClick, onAccountClick, onRowClick }) {
   );
 }
 
+// ─── Padlock (ELK) table ──────────────────────────────────────────────────────
+function PadlockTable({ rows, loading, onAccountClick, onRowClick }) {
+  if (loading)
+    return (
+      <div className="space-y-2 p-4">
+        {Array.from({ length: 6 }).map((_, i) => (
+          <Skeleton key={i} className="h-10 w-full rounded-lg" />
+        ))}
+      </div>
+    );
+  if (!rows.length)
+    return (
+      <div className="py-12 text-center text-sm text-slate-400">
+        No padlock devices match your filter.
+      </div>
+    );
+
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full text-sm">
+        <thead>
+          <tr className="border-b border-slate-100 bg-slate-50/60">
+            {[
+              "#",
+              "Account",
+              "Vehicle No.",
+              "IMEI",
+              "SIM No.",
+              "Date/Time",
+              "Address",
+              "GPS",
+              "Speed",
+              "Lock Status",
+              "Status",
+            ].map((h) => (
+              <th
+                key={h}
+                className="px-3 py-2.5 text-left text-xs font-semibold text-slate-500 whitespace-nowrap"
+              >
+                {h}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-slate-50">
+          {rows.map((r, i) => (
+            <tr
+              key={r.imei ?? i}
+              className="hover:bg-primary/5 transition cursor-pointer"
+              onClick={() => onRowClick?.(r)}
+              title={`View details for ${r.vehnum || r.name || r.imei}`}
+            >
+              <td className="px-3 py-2.5 text-xs text-slate-400 font-medium">
+                {i + 1}
+              </td>
+              <td
+                className="px-3 py-2.5 whitespace-nowrap relative"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <AccountNameCell name={r.accountName} onOpen={onAccountClick} />
+              </td>
+              <td className="px-3 py-2.5">
+                <button className="text-xs font-bold text-primary hover:underline whitespace-nowrap">
+                  {r.vehnum || r.name || "—"}
+                </button>
+              </td>
+              <td className="px-3 py-2.5">
+                <button className="text-xs text-primary hover:underline font-mono">
+                  {r.imei}
+                </button>
+              </td>
+              <td className="px-3 py-2.5 text-xs text-slate-500 font-mono whitespace-nowrap">
+                {r.simNo || "—"}
+              </td>
+              <td className="px-3 py-2.5 text-xs text-slate-500 whitespace-nowrap">
+                {r.devTs || r.cts || "—"}
+              </td>
+              <td className="px-3 py-2.5 text-xs text-slate-500 max-w-[180px]">
+                {r.address && r.address !== "NA" && r.address.trim() ? (
+                  <span className="line-clamp-2">{r.address}</span>
+                ) : r.lat && r.lng ? (
+                  <a
+                    href={`https://www.google.com/maps?q=${r.lat},${r.lng}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 text-primary hover:underline"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    Open Maps <ExternalLink size={11} />
+                  </a>
+                ) : (
+                  <span className="text-slate-300">No address</span>
+                )}
+              </td>
+              <td className="px-3 py-2.5">
+                <span
+                  className={cn(
+                    "text-xs font-semibold",
+                    r.gps === "A" ? "text-emerald-600" : "text-slate-400",
+                  )}
+                >
+                  {r.gps === "A" ? "Active" : "Inactive"}
+                </span>
+              </td>
+              <td className="px-3 py-2.5 text-xs font-semibold whitespace-nowrap">
+                {Number(r.speed) > 0 ? (
+                  <span className="text-emerald-600">
+                    {Number(r.speed).toFixed(1)} km/h
+                  </span>
+                ) : (
+                  <span className="text-slate-400">0 km/h</span>
+                )}
+              </td>
+              <td className="px-3 py-2.5">
+                <LockChip state={r._lockState} />
+              </td>
+              <td className="px-3 py-2.5">
+                <StatusChip status={r._status} />
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 // ─── Unreachable table ────────────────────────────────────────────────────────
 function UnreachableTable({ rows, loading, onImeiClick, onAccountClick }) {
   if (loading)
@@ -506,8 +698,10 @@ function UnreachableTable({ rows, loading, onImeiClick, onAccountClick }) {
 // ─── Main component ───────────────────────────────────────────────────────────
 export function FleetTableCard({
   vtsData = [],
+  elkData = [],
   unreachableData = [],
   loadingVts,
+  loadingElk,
   loadingUnreachable,
 }) {
   const navigate = useNavigate();
@@ -519,6 +713,7 @@ export function FleetTableCard({
 
   const [tab, setTab] = useState("vts");
   const [vtsFilter, setVtsFilter] = useState("all");
+  const [elkFilter, setElkFilter] = useState("all");
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const PAGE_SIZE = 20;
@@ -530,20 +725,19 @@ export function FleetTableCard({
   const closeGlobalDrawer = useFleetTableStore((s) => s.closeDrawer);
   const [localDrawerVehicle, setLocalDrawerVehicle] = useState(null);
 
-  // When chatbot opens a drawer by IMEI, find that vehicle in vtsData
+  // When chatbot opens a drawer by IMEI, find that device in VTS *or* ELK data
   useEffect(() => {
     if (!drawerImei) {
       setLocalDrawerVehicle(null);
       return;
     }
-    const found = vtsData.find(
-      (v) => v.imei === drawerImei || v.id === drawerImei,
-    );
+    const match = (v) => v.imei === drawerImei || v.id === drawerImei;
+    const found = vtsData.find(match) ?? elkData.find(match);
     if (found) {
       setLocalDrawerVehicle({ ...found, _status: getVtsStatus(found) });
       setGlobalVehicle(found);
     }
-  }, [drawerImei, vtsData, setGlobalVehicle]);
+  }, [drawerImei, vtsData, elkData, setGlobalVehicle]);
 
   const drawerVehicle = localDrawerVehicle;
   const closeDrawer = () => {
@@ -611,6 +805,41 @@ export function FleetTableCard({
       );
   }, [annotatedVts, vtsFilter, search]);
 
+  // Annotate ELK (padlock) rows with movement status + lock state
+  const annotatedElk = useMemo(
+    () =>
+      elkData.map((item) => ({
+        ...item,
+        _status: getVtsStatus(item),
+        _lockState: getLockState(item),
+      })),
+    [elkData],
+  );
+
+  const elkCounts = useMemo(
+    () => ({
+      all: annotatedElk.length,
+      motion: annotatedElk.filter((r) => r._status === "motion").length,
+      idle: annotatedElk.filter((r) => r._status === "idle").length,
+      stopped: annotatedElk.filter((r) => r._status === "stopped").length,
+      offline: annotatedElk.filter((r) => r._status === "offline").length,
+    }),
+    [annotatedElk],
+  );
+
+  const filteredElk = useMemo(() => {
+    const term = search.toLowerCase();
+    return annotatedElk
+      .filter((r) => elkFilter === "all" || r._status === elkFilter)
+      .filter(
+        (r) =>
+          !term ||
+          [r.vehnum, r.name, r.imei, r.accountName].some((f) =>
+            (f ?? "").toLowerCase().includes(term),
+          ),
+      );
+  }, [annotatedElk, elkFilter, search]);
+
   // Searched unreachable
   const filteredUnreachable = useMemo(() => {
     const term = search.toLowerCase();
@@ -624,7 +853,12 @@ export function FleetTableCard({
   }, [unreachableData, search]);
 
   // Pagination
-  const activeRows = tab === "vts" ? filteredVts : filteredUnreachable;
+  const activeRows =
+    tab === "vts"
+      ? filteredVts
+      : tab === "elk"
+        ? filteredElk
+        : filteredUnreachable;
   const totalPages = Math.max(1, Math.ceil(activeRows.length / PAGE_SIZE));
   const currentPage = Math.min(page, totalPages);
   const pagedRows = activeRows.slice(
@@ -648,6 +882,20 @@ export function FleetTableCard({
     { key: "gps", label: "GPS", width: 10 },
     { key: "ignition", label: "Ignition", width: 10 },
     { key: "speed", label: "Speed (km/h)", width: 14 },
+    { key: "status", label: "Status", width: 12 },
+  ];
+
+  const ELK_COLS = [
+    { key: "no", label: "No", width: 6 },
+    { key: "accountName", label: "Account", width: 22 },
+    { key: "vehnum", label: "Vehicle No.", width: 16 },
+    { key: "imei", label: "IMEI", width: 20 },
+    { key: "simNo", label: "SIM No.", width: 14 },
+    { key: "dateTime", label: "Date/Time", width: 22 },
+    { key: "address", label: "Address", width: 36 },
+    { key: "gps", label: "GPS", width: 10 },
+    { key: "speed", label: "Speed (km/h)", width: 14 },
+    { key: "lockStatus", label: "Lock Status", width: 14 },
     { key: "status", label: "Status", width: 12 },
   ];
 
@@ -681,6 +929,24 @@ export function FleetTableCard({
     [filteredVts],
   );
 
+  const elkExportRows = useMemo(
+    () =>
+      filteredElk.map((r, i) => ({
+        no: i + 1,
+        accountName: r.accountName ?? "—",
+        vehnum: r.vehnum || r.name || "—",
+        imei: r.imei ?? "—",
+        simNo: r.simNo || "—",
+        dateTime: r.devTs || r.cts || "—",
+        address: r.address && r.address !== "NA" ? r.address : "—",
+        gps: r.gps === "A" ? "Active" : "Inactive",
+        speed: `${Number(r.speed ?? 0).toFixed(1)} km/h`,
+        lockStatus: LOCK_META[r._lockState]?.label ?? "—",
+        status: STATUS_META[r._status]?.label ?? r._status ?? "—",
+      })),
+    [filteredElk],
+  );
+
   const unreachableExportRows = useMemo(
     () =>
       filteredUnreachable.map((r, i) => ({
@@ -698,16 +964,35 @@ export function FleetTableCard({
   const stamp = () => new Date().toISOString().slice(0, 10);
 
   const activeExportRows =
-    tab === "vts" ? vtsExportRows : unreachableExportRows;
-  const activeExportCols = tab === "vts" ? VTS_COLS : UNREACHABLE_COLS;
+    tab === "vts"
+      ? vtsExportRows
+      : tab === "elk"
+        ? elkExportRows
+        : unreachableExportRows;
+
+  const activeExportCols =
+    tab === "vts" ? VTS_COLS : tab === "elk" ? ELK_COLS : UNREACHABLE_COLS;
+
   const activeExportLabel =
-    tab === "vts" ? "live_vehicles" : "unreachable_devices";
+    tab === "vts"
+      ? "live_vehicles"
+      : tab === "elk"
+        ? "padlock_devices"
+        : "unreachable_devices";
+
   const exportMetaTitle =
-    tab === "vts" ? "Live Vehicles" : "Unreachable Devices";
+    tab === "vts"
+      ? "Live Vehicles"
+      : tab === "elk"
+        ? "Padlock Devices"
+        : "Unreachable Devices";
+
   const exportMetaSub =
     tab === "vts"
       ? `${filteredVts.length} vehicles${vtsFilter !== "all" ? ` · ${vtsFilter}` : ""}${search ? ` · "${search}"` : ""}`
-      : `${filteredUnreachable.length} devices${search ? ` · "${search}"` : ""}`;
+      : tab === "elk"
+        ? `${filteredElk.length} padlocks${elkFilter !== "all" ? ` · ${elkFilter}` : ""}${search ? ` · "${search}"` : ""}`
+        : `${filteredUnreachable.length} devices${search ? ` · "${search}"` : ""}`;
 
   const handleExportCSV = () =>
     exportCSV(
@@ -732,6 +1017,7 @@ export function FleetTableCard({
 
   const TABS = [
     { value: "vts", label: `Live Vehicles (${vtsCounts.all})` },
+    { value: "elk", label: `Padlock (${elkCounts.all})` },
     { value: "unreachable", label: `Unreachable (${unreachableData.length})` },
   ];
 
@@ -746,7 +1032,9 @@ export function FleetTableCard({
           <p className="text-xs text-slate-400 mt-0.5">
             {tab === "vts"
               ? `${filteredVts.length} vehicles${vtsFilter !== "all" ? ` (${vtsFilter})` : ""}`
-              : `${filteredUnreachable.length} unreachable devices`}
+              : tab === "elk"
+                ? `${filteredElk.length} padlock devices${elkFilter !== "all" ? ` (${elkFilter})` : ""}`
+                : `${filteredUnreachable.length} unreachable devices`}
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -800,6 +1088,20 @@ export function FleetTableCard({
         </div>
       )}
 
+      {/* Padlock status filter bar */}
+      {tab === "elk" && (
+        <div className="mb-3">
+          <FilterBar
+            active={elkFilter}
+            counts={elkCounts}
+            onChange={(v) => {
+              setElkFilter(v);
+              resetPage();
+            }}
+          />
+        </div>
+      )}
+
       {/* Table */}
       <div className="rounded-xl border border-slate-100 overflow-hidden">
         {tab === "vts" ? (
@@ -807,6 +1109,13 @@ export function FleetTableCard({
             rows={pagedRows}
             loading={loadingVts}
             onImeiClick={handleImeiClick}
+            onAccountClick={openAccountPopup}
+            onRowClick={handleVehicleClick}
+          />
+        ) : tab === "elk" ? (
+          <PadlockTable
+            rows={pagedRows}
+            loading={loadingElk}
             onAccountClick={openAccountPopup}
             onRowClick={handleVehicleClick}
           />
