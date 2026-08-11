@@ -47,13 +47,13 @@ export const NAVIGATION = [
   { id: "devices", label: "IoT Sensors", icon: Radio, to: PATHS.DEVICES },
   {
     id: "load-cell",
-    label: "Load Cell Report",
+    label: "Load Sensor Report",
     icon: BarChart2,
     to: PATHS.LOAD_CELL,
   },
   {
     id: "live-load",
-    label: "Live Load Graph",
+    label: "Live Load Sensor",
     icon: Activity,
     to: PATHS.LIVE_LOAD,
   },

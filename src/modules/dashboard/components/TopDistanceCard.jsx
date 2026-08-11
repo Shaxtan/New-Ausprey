@@ -5,7 +5,10 @@
  * chart with a ranked list below. Sourced from the dedicated
  * /reports/top-distance-devices endpoint (per-vehicle, server-ranked).
  *
- * Clicking a row jumps to Live Tracking for that vehicle.
+ * Clicking a row opens the Distance Report (inside the Reports hub) with
+ * that vehicle's IMEI pre-filled and the report auto-fetched — the same
+ * `activeReport` navigation pattern the Fleet Chat Assistant's OPEN_REPORT
+ * action already uses to reach DistanceReportPage.
  */
 
 import { Route } from "lucide-react";
@@ -26,10 +29,15 @@ export function TopDistanceCard({ data = [], loading }) {
     color: BAR_COLORS[i % BAR_COLORS.length] ?? "#8bb9f8",
   }));
 
-  const trackVehicle = (d) => {
+  const openDistanceReport = (d) => {
     if (!d.imei) return;
-    navigate(PATHS.TRACKING, {
-      state: { targetImei: d.imei, targetAccountId: d.accountId },
+    navigate(PATHS.REPORTS, {
+      state: {
+        activeReport: "distance",
+        targetImei: d.imei,
+        targetAccountId: d.accountId,
+        targetVehicleLabel: d.name,
+      },
     });
   };
 
@@ -77,7 +85,7 @@ export function TopDistanceCard({ data = [], loading }) {
               {data.map((d, i) => (
                 <button
                   key={d.imei ?? i}
-                  onClick={() => trackVehicle(d)}
+                  onClick={() => openDistanceReport(d)}
                   disabled={!d.imei}
                   className="w-full flex items-center justify-between py-1 px-2 rounded-lg hover:bg-slate-50 transition-colors text-left disabled:cursor-default disabled:hover:bg-transparent"
                 >

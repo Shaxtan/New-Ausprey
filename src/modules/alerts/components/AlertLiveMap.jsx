@@ -63,6 +63,20 @@ export function AlertLiveMap({ alerts = [], loading }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Keep Leaflet's internal canvas size in sync with the container.
+  // The container's own height is driven by the parent (RowPanel's
+  // flex-1 wrapper), which changes when the map is expanded/collapsed —
+  // Leaflet doesn't detect that on its own, so a ResizeObserver is needed
+  // to call invalidateSize() whenever the container is actually resized.
+  useEffect(() => {
+    if (!divRef.current) return;
+    const observer = new ResizeObserver(() => {
+      mapRef.current?.invalidateSize();
+    });
+    observer.observe(divRef.current);
+    return () => observer.disconnect();
+  }, []);
+
   useEffect(() => {
     tileLayerRef.current?.setUrl(MAP_MODES[mapMode].url);
   }, [mapMode]);
@@ -104,10 +118,7 @@ export function AlertLiveMap({ alerts = [], loading }) {
   }, [alerts]);
 
   return (
-    <div
-      className="relative rounded-xl overflow-hidden border border-slate-100"
-      style={{ height: 320 }}
-    >
+    <div className="relative w-full h-full rounded-xl overflow-hidden border border-slate-100">
       {loading && (
         <div className="absolute inset-0 z-10">
           <Skeleton className="w-full h-full rounded-none" />

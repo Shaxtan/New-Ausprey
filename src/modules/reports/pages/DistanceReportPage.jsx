@@ -10,6 +10,7 @@
  */
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useLocation } from "react-router-dom";
 import {
   BarChart,
   Bar,
@@ -278,6 +279,16 @@ function DistanceChart({ data, xKey, isSingleDay }) {
 // ─── Page ─────────────────────────────────────────────────────────────────────
 export default function DistanceReportPage() {
   const accid = useAccountStore((s) => s.selectedAccount?.id ?? 1);
+  const location = useLocation();
+
+  // Pre-fill from navigation state (e.g. clicking a vehicle in the
+  // dashboard's "Top by Distance" chart, or the chatbot's OPEN_REPORT
+  // action). Consumed once via the ref below so a later manual IMEI
+  // change isn't clobbered by a stale navigation state on re-render.
+  const targetImei = location.state?.targetImei;
+  const targetVehicleLabel = location.state?.targetVehicleLabel;
+  const consumedTargetRef = useRef(false);
+  const autoFetchedRef = useRef(false);
 
   const [imeiList, setImeiList] = useState([]);
   const [imeiLoading, setImeiLoading] = useState(false);
@@ -304,12 +315,38 @@ export default function DistanceReportPage() {
           value: item.imei,
           label: item.vehnum ? `${item.vehnum} (${item.imei})` : item.imei,
         }));
-        setImeiList(opts);
-        if (opts.length) setImei(opts[0].value);
+
+        // If we arrived here with a target vehicle (dashboard click / chat
+        // action) and haven't consumed it yet, select that one instead of
+        // defaulting to the first vehicle in the list. Inject it as a
+        // synthetic option if the account-scoped dropdown doesn't happen
+        // to include it, so the select shows a real label instead of blank.
+        if (targetImei && !consumedTargetRef.current) {
+          consumedTargetRef.current = true;
+          const alreadyPresent = opts.some((o) => o.value === targetImei);
+          const finalOpts = alreadyPresent
+            ? opts
+            : [
+                {
+                  value: targetImei,
+                  label: targetVehicleLabel
+                    ? `${targetVehicleLabel} (${targetImei})`
+                    : targetImei,
+                },
+                ...opts,
+              ];
+          setImeiList(finalOpts);
+          setImei(targetImei);
+        } else {
+          setImeiList(opts);
+          if (opts.length) setImei(opts[0].value);
+        }
         setImeiLoading(false);
       })
       .catch(() => setImeiLoading(false));
-  }, [accid]);
+  }, [accid, targetImei, targetVehicleLabel]);
+
+  // Auto-fetch is wired in just below fetchReport's declaration.
 
   const handleQuick = (key) => {
     setQuick(key);
@@ -347,6 +384,16 @@ export default function DistanceReportPage() {
       setLoading(false);
     }
   };
+
+  // Auto-fetch once the target vehicle's IMEI (from a dashboard click or
+  // the chatbot's OPEN_REPORT action) has actually been applied to `imei`.
+  useEffect(() => {
+    if (targetImei && imei === targetImei && !autoFetchedRef.current) {
+      autoFetchedRef.current = true;
+      fetchReport();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [imei, targetImei]);
 
   // Determine whether it's a single day (hourly) or multi-day (daily)
   const isSingleDay = useMemo(
