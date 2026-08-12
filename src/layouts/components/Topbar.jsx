@@ -476,14 +476,14 @@ function UserMenu() {
                 Account settings
               </Link>
 
-              <Link
+              {/* <Link
                 to={PATHS.SETTINGS}
                 onClick={() => setOpen(false)}
                 className="flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-slate-600 rounded-lg hover:bg-slate-100 transition"
               >
                 <Settings size={16} className="text-slate-400" />
                 Preferences
-              </Link>
+              </Link> */}
             </div>
 
             {/* Logout */}
