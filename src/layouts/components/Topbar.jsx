@@ -617,7 +617,7 @@ function UserMenu() {
                 Account settings
               </Link>
 
-              <Link
+              {/* <Link
                 to={PATHS.SETTINGS}
                 onClick={() =>
                   setOpen(false)
@@ -630,7 +630,7 @@ function UserMenu() {
                 />
 
                 Preferences
-              </Link>
+              </Link> */}
             </div>
 
             {/* Logout */}
