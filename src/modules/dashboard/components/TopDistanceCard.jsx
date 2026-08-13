@@ -18,15 +18,33 @@ import { BarChart } from "@/components/charts";
 import { PATHS } from "@/constants";
 import { formatNumber } from "@/utils";
 
-// Progressively lighter blues per rank
-const BAR_COLORS = ["#1A73E8", "#2e7eed", "#4a8ff2", "#6aa4f5", "#8bb9f8"];
+// Interpolates from the app's primary blue (rank 1) down to a pale tint
+// (last rank), scaling smoothly across however many bars are actually
+// shown — unlike a fixed palette, this never wraps/resets partway through.
+const SHADE_START = { r: 0x1a, g: 0x73, b: 0xe8 }; // #1A73E8
+const SHADE_END = { r: 0xdb, g: 0xea, b: 0xfe }; // pale blue
+function shadeForRank(i, total) {
+  const t = total > 1 ? i / (total - 1) : 0;
+  const r = Math.round(SHADE_START.r + (SHADE_END.r - SHADE_START.r) * t);
+  const g = Math.round(SHADE_START.g + (SHADE_END.g - SHADE_START.g) * t);
+  const b = Math.round(SHADE_START.b + (SHADE_END.b - SHADE_START.b) * t);
+  return { r, g, b, css: `rgb(${r}, ${g}, ${b})` };
+}
+
+// White text reads fine on the darker end of the gradient but disappears
+// against the pale tint near the last rank — switch to dark text once the
+// background gets light enough (perceptual luminance threshold).
+function textColorFor({ r, g, b }) {
+  const luminance = 0.299 * r + 0.587 * g + 0.114 * b;
+  return luminance > 170 ? "#1e3a8a" : "#ffffff";
+}
 
 export function TopDistanceCard({ data = [], loading }) {
   const navigate = useNavigate();
 
   const chartData = data.map((d, i) => ({
     ...d,
-    color: BAR_COLORS[i % BAR_COLORS.length] ?? "#8bb9f8",
+    color: shadeForRank(i, data.length).css,
   }));
 
   const openDistanceReport = (d) => {
@@ -78,47 +96,52 @@ export function TopDistanceCard({ data = [], loading }) {
               dataKey="value"
               layout="vertical"
               height={Math.max(120, chartData.length * 32)}
+              showValueLabels
+              valueFormatter={(v) => `${formatNumber(v)} km`}
             />
 
             {/* Ranked List */}
             <div className="mt-2 space-y-0.5">
-              {data.map((d, i) => (
-                <button
-                  key={d.imei ?? i}
-                  onClick={() => openDistanceReport(d)}
-                  disabled={!d.imei}
-                  className="w-full flex items-center justify-between py-1 px-2 rounded-lg hover:bg-slate-50 transition-colors text-left disabled:cursor-default disabled:hover:bg-transparent"
-                >
-                  <span className="flex items-center gap-2 min-w-0">
-                    <span
-                      className="w-6 h-6 rounded-full text-[11px] font-bold text-white flex items-center justify-center shrink-0 shadow-sm"
-                      style={{
-                        background:
-                          BAR_COLORS[i % BAR_COLORS.length] ?? "#8bb9f8",
-                      }}
-                    >
-                      {i + 1}
+              {data.map((d, i) => {
+                const shade = shadeForRank(i, data.length);
+                return (
+                  <button
+                    key={d.imei ?? i}
+                    onClick={() => openDistanceReport(d)}
+                    disabled={!d.imei}
+                    className="w-full flex items-center justify-between py-1 px-2 rounded-lg hover:bg-slate-50 transition-colors text-left disabled:cursor-default disabled:hover:bg-transparent"
+                  >
+                    <span className="flex items-center gap-2 min-w-0">
+                      <span
+                        className="w-6 h-6 rounded-full text-[11px] font-bold flex items-center justify-center shrink-0 shadow-sm"
+                        style={{
+                          background: shade.css,
+                          color: textColorFor(shade),
+                        }}
+                      >
+                        {i + 1}
+                      </span>
+
+                      <div className="min-w-0">
+                        <div className="text-xs font-semibold text-slate-700 truncate">
+                          {d.name}
+                        </div>
+
+                        <div className="text-[10px] text-slate-400 truncate">
+                          {d.accountName ?? "—"}
+                        </div>
+                      </div>
                     </span>
 
-                    <div className="min-w-0">
-                      <div className="text-xs font-semibold text-slate-700 truncate">
-                        {d.name}
-                      </div>
-
-                      <div className="text-[10px] text-slate-400 truncate">
-                        {d.accountName ?? "—"}
-                      </div>
-                    </div>
-                  </span>
-
-                  <span className="text-xs font-bold text-slate-800 shrink-0 ml-2">
-                    {formatNumber(d.value)}
-                    <span className="ml-1 text-[10px] font-normal text-slate-400">
-                      km
+                    <span className="text-xs font-bold text-slate-800 shrink-0 ml-2">
+                      {formatNumber(d.value)}
+                      <span className="ml-1 text-[10px] font-normal text-slate-400">
+                        km
+                      </span>
                     </span>
-                  </span>
-                </button>
-              ))}
+                  </button>
+                );
+              })}
             </div>
           </>
         )}
