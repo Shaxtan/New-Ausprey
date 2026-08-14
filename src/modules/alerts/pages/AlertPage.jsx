@@ -117,7 +117,12 @@ const MOCK_DRIVERS = [
   "Vikram Raj",
   "System Device",
 ];
-const MOCK_ASSIGNEES = ["Aman Singh", "Neha Sharma", "Vikram Raj", "Priya Mehta"];
+const MOCK_ASSIGNEES = [
+  "Aman Singh",
+  "Neha Sharma",
+  "Vikram Raj",
+  "Priya Mehta",
+];
 
 function hashString(str) {
   let hash = 0;
@@ -142,7 +147,14 @@ function getMockEnrichment(alert) {
 const isEscalatedAlert = (a) => getMockEnrichment(a).escalated;
 
 /* ─── RowPanel: locked-height card wrapper — the alignment fix ──────────── */
-function RowPanel({ height, title, subtitle, headerRight, scroll = false, children }) {
+function RowPanel({
+  height,
+  title,
+  subtitle,
+  headerRight,
+  scroll = false,
+  children,
+}) {
   return (
     <Card hover className="flex flex-col" style={{ height }}>
       <div className="flex items-start justify-between gap-2 shrink-0">
@@ -172,9 +184,7 @@ function Sparkline({ data, color = "#2563eb", height = 22 }) {
   const w = 100;
   const step = data.length > 1 ? w / (data.length - 1) : 0;
   const points = data
-    .map(
-      (d, i) => `${i * step},${height - (d.count / max) * (height - 4) - 2}`,
-    )
+    .map((d, i) => `${i * step},${height - (d.count / max) * (height - 4) - 2}`)
     .join(" ");
   return (
     <svg
@@ -198,10 +208,34 @@ function Sparkline({ data, color = "#2563eb", height = 22 }) {
 /* ─── Alert Performance content ─────────────────────────────────────────── */
 function AlertPerformanceContent({ ackRate, repeatRate, dailyVolume }) {
   const rows = [
-    { icon: Timer, color: "#2563eb", label: "Avg Response Time", value: "3m 24s", mock: true },
-    { icon: Hourglass, color: "#2563eb", label: "Avg Resolution Time", value: "25m 18s", mock: true },
-    { icon: CheckCircle2, color: "#16a34a", label: "Acknowledgement Rate", value: `${ackRate.toFixed(1)}%`, mock: false },
-    { icon: Repeat, color: "#d97706", label: "Repeat Alert Rate", value: `${repeatRate.toFixed(1)}%`, mock: false },
+    {
+      icon: Timer,
+      color: "#2563eb",
+      label: "Avg Response Time",
+      value: "3m 24s",
+      mock: true,
+    },
+    {
+      icon: Hourglass,
+      color: "#2563eb",
+      label: "Avg Resolution Time",
+      value: "25m 18s",
+      mock: true,
+    },
+    {
+      icon: CheckCircle2,
+      color: "#16a34a",
+      label: "Acknowledgement Rate",
+      value: `${ackRate.toFixed(1)}%`,
+      mock: false,
+    },
+    {
+      icon: Repeat,
+      color: "#d97706",
+      label: "Repeat Alert Rate",
+      value: `${repeatRate.toFixed(1)}%`,
+      mock: false,
+    },
   ];
   return (
     <div className="h-full flex flex-col justify-between">
@@ -232,15 +266,22 @@ function AlertPerformanceContent({ ackRate, repeatRate, dailyVolume }) {
         ))}
       </div>
       <p className="text-[10px] text-slate-400 pt-3 mt-3 border-t border-slate-100 leading-relaxed">
-        Rates are live from this search. Time metrics are sample values
-        pending real triage timestamps.
+        Rates are live from this search. Time metrics are sample values pending
+        real triage timestamps.
       </p>
     </div>
   );
 }
 
 /* ─── Row action kebab menu — groups triage actions ─────────────────────── */
-function RowActionsMenu({ status, onAcknowledge, onResolve, onReopen, current, onReassign }) {
+function RowActionsMenu({
+  status,
+  onAcknowledge,
+  onResolve,
+  onReopen,
+  current,
+  onReassign,
+}) {
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
 
@@ -264,7 +305,10 @@ function RowActionsMenu({ status, onAcknowledge, onResolve, onReopen, current, o
         <div className="absolute right-0 z-30 mt-1 w-52 rounded-xl border border-slate-100 bg-white shadow-lg py-1.5">
           {status === "open" && (
             <button
-              onClick={() => { onAcknowledge(); setOpen(false); }}
+              onClick={() => {
+                onAcknowledge();
+                setOpen(false);
+              }}
               className="w-full flex items-center gap-2.5 px-3 py-2 text-xs text-slate-600 hover:bg-blue-50 hover:text-blue-600"
             >
               <Check size={13} /> Acknowledge
@@ -272,7 +316,10 @@ function RowActionsMenu({ status, onAcknowledge, onResolve, onReopen, current, o
           )}
           {status === "acknowledged" && (
             <button
-              onClick={() => { onResolve(); setOpen(false); }}
+              onClick={() => {
+                onResolve();
+                setOpen(false);
+              }}
               className="w-full flex items-center gap-2.5 px-3 py-2 text-xs text-slate-600 hover:bg-emerald-50 hover:text-emerald-600"
             >
               <ShieldCheck size={13} /> Resolve
@@ -280,7 +327,10 @@ function RowActionsMenu({ status, onAcknowledge, onResolve, onReopen, current, o
           )}
           {status !== "open" && (
             <button
-              onClick={() => { onReopen(); setOpen(false); }}
+              onClick={() => {
+                onReopen();
+                setOpen(false);
+              }}
               className="w-full flex items-center gap-2.5 px-3 py-2 text-xs text-slate-600 hover:bg-rose-50 hover:text-rose-600"
             >
               <RotateCcw size={13} /> Reopen
@@ -293,7 +343,10 @@ function RowActionsMenu({ status, onAcknowledge, onResolve, onReopen, current, o
           {MOCK_ASSIGNEES.map((name) => (
             <button
               key={name}
-              onClick={() => { onReassign(name); setOpen(false); }}
+              onClick={() => {
+                onReassign(name);
+                setOpen(false);
+              }}
               className={cn(
                 "w-full flex items-center gap-2.5 px-3 py-1.5 text-xs hover:bg-slate-50",
                 name === current ? "text-primary font-bold" : "text-slate-600",
@@ -338,35 +391,40 @@ export default function AlertsPage() {
 
   const { getStatus, acknowledge, resolve, reopen } = useAlertTriage(accountId);
 
+  const defaultsAppliedRef = useRef(false);
+
   useEffect(() => {
     loadAccounts();
   }, [loadAccounts]);
-  useEffect(() => {
-    if (!accountId && accounts.length)
-      setAccountId(storeSelected?.id ?? accounts[0].id);
-  }, [accounts, storeSelected, accountId]);
 
   const handleQuick = (type) => {
     setQuick(type);
     const now = new Date();
     now.setSeconds(0, 0);
-    let s = new Date(), e = new Date();
+    let s = new Date(),
+      e = new Date();
     if (type === "today") {
-      s.setHours(0, 0, 0, 0); e.setHours(23, 59, 59, 999);
+      s.setHours(0, 0, 0, 0);
+      e.setHours(23, 59, 59, 999);
     }
     if (type === "yesterday") {
-      s.setDate(now.getDate() - 1); s.setHours(0, 0, 0, 0);
-      e.setDate(now.getDate() - 1); e.setHours(23, 59, 59, 999);
+      s.setDate(now.getDate() - 1);
+      s.setHours(0, 0, 0, 0);
+      e.setDate(now.getDate() - 1);
+      e.setHours(23, 59, 59, 999);
     }
     if (type === "week") s.setDate(now.getDate() - 7);
     setFromDate(toLocalInput(s));
     setToDate(toLocalInput(e));
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const runSearch = async (overrides = {}) => {
+    const accid = overrides.accid ?? accountId;
+    const from = overrides.from ?? fromDate;
+    const to = overrides.to ?? toDate;
+
     setError("");
-    if (!accountId || !fromDate || !toDate) {
+    if (!accid || !from || !to) {
       setError("Please select an account and both dates.");
       return;
     }
@@ -375,9 +433,9 @@ export default function AlertsPage() {
     setPage(1);
     try {
       const payload = {
-        accid: String(accountId),
-        startTime: toApiDateTime(fromDate),
-        endTime: toApiDateTime(toDate),
+        accid: String(accid),
+        startTime: toApiDateTime(from),
+        endTime: toApiDateTime(to),
         pageSize: 0,
       };
       const res = await apiService.getAlertsByAccount(payload);
@@ -393,6 +451,48 @@ export default function AlertsPage() {
       setLoading(false);
     }
   };
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    runSearch();
+  };
+
+  // Selecting a different account here re-fetches immediately with the
+  // currently-set date range, instead of requiring another Search click.
+  const handleAccountChange = (newAccountId) => {
+    setAccountId(newAccountId);
+    runSearch({ accid: newAccountId });
+  };
+
+  // Default view: the "Ausprey" account, today's alerts, fetched automatically
+  // — falls back to the globally-selected account (or the first one) if no
+  // account literally named "Ausprey" exists. Runs once, the first time the
+  // account list is available; picking a different account afterwards (via
+  // the dropdown below) re-fetches live instead of requiring another click.
+  useEffect(() => {
+    if (defaultsAppliedRef.current || !accounts.length) return;
+    defaultsAppliedRef.current = true;
+
+    const ausprey = accounts.find(
+      (a) => (a.label ?? "").trim().toLowerCase() === "ausprey",
+    );
+    const defaultAccountId = ausprey?.id ?? storeSelected?.id ?? accounts[0].id;
+    setAccountId(defaultAccountId);
+
+    const now = new Date();
+    const s = new Date(now);
+    s.setHours(0, 0, 0, 0);
+    const eod = new Date(now);
+    eod.setHours(23, 59, 59, 999);
+    const from = toLocalInput(s);
+    const to = toLocalInput(eod);
+    setFromDate(from);
+    setToDate(to);
+    setQuick("today");
+
+    runSearch({ accid: defaultAccountId, from, to });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [accounts, storeSelected]);
 
   /* ─── derivations ─────────────────────────────────────────────────────── */
   const filtered = useMemo(() => {
@@ -420,8 +520,12 @@ export default function AlertsPage() {
     [filtered, getStatus],
   );
 
-  const ackCount = filtered.filter((a) => getStatus(a.id) === "acknowledged").length;
-  const resolvedCount = filtered.filter((a) => getStatus(a.id) === "resolved").length;
+  const ackCount = filtered.filter(
+    (a) => getStatus(a.id) === "acknowledged",
+  ).length;
+  const resolvedCount = filtered.filter(
+    (a) => getStatus(a.id) === "resolved",
+  ).length;
   const repeatVehicles = useMemo(() => {
     const byVehicle = filtered.reduce((acc, a) => {
       const key = a.vehicleNumber ?? a.imei;
@@ -463,38 +567,55 @@ export default function AlertsPage() {
   const kpis = [
     {
       icon: Bell,
-      iconBg: "#eff6ff", iconColor: "#2563eb",
+      iconBg: "#eff6ff",
+      iconColor: "#2563eb",
       label: "Total Alerts",
       value: formatNumber(total),
       trend: <Trend value="Selected period" neutral />,
     },
     {
       icon: AlertOctagon,
-      iconBg: SEVERITY_META.critical.bg, iconColor: SEVERITY_META.critical.color,
+      iconBg: SEVERITY_META.critical.bg,
+      iconColor: SEVERITY_META.critical.color,
       label: "Critical Open",
       value: formatNumber(criticalOpenCount),
       trend: <Trend value="Awaiting action" neutral />,
     },
     {
       icon: CheckCircle2,
-      iconBg: "#dbeafe", iconColor: "#2563eb",
+      iconBg: "#dbeafe",
+      iconColor: "#2563eb",
       label: "Acknowledgement Rate",
       value: `${ackRateNum.toFixed(1)}%`,
-      trend: <Trend value={`${formatNumber(ackCount)} of ${formatNumber(total)}`} neutral />,
+      trend: (
+        <Trend
+          value={`${formatNumber(ackCount)} of ${formatNumber(total)}`}
+          neutral
+        />
+      ),
     },
     {
       icon: ShieldCheck,
-      iconBg: "#dcfce7", iconColor: "#16a34a",
+      iconBg: "#dcfce7",
+      iconColor: "#16a34a",
       label: "Resolution Rate",
       value: `${resolvedRateNum.toFixed(1)}%`,
-      trend: <Trend value={`${formatNumber(resolvedCount)} resolved`} neutral />,
+      trend: (
+        <Trend value={`${formatNumber(resolvedCount)} resolved`} neutral />
+      ),
     },
     {
       icon: AlertTriangle,
-      iconBg: "#fee2e2", iconColor: "#e11d48",
+      iconBg: "#fee2e2",
+      iconColor: "#e11d48",
       label: "SLA Breach Rate",
       value: `${slaBreachRateNum.toFixed(1)}%`,
-      trend: <Trend value={`${formatNumber(slaBreachedCount)} open > ${SLA_BREACH_MINUTES}m`} neutral />,
+      trend: (
+        <Trend
+          value={`${formatNumber(slaBreachedCount)} open > ${SLA_BREACH_MINUTES}m`}
+          neutral
+        />
+      ),
     },
   ];
 
@@ -519,7 +640,9 @@ export default function AlertsPage() {
   const totalPages = Math.max(1, Math.ceil(tableRows.length / pageSize));
   const pageRows = tableRows.slice((page - 1) * pageSize, page * pageSize);
 
-  useEffect(() => { setPage(1); }, [statusTab, pageSize, imeiFilter]);
+  useEffect(() => {
+    setPage(1);
+  }, [statusTab, pageSize, imeiFilter]);
 
   /* ─── export ───────────────────────────────────────────────────────────── */
   const ALERT_EXPORT_COLS = [
@@ -557,15 +680,25 @@ export default function AlertsPage() {
     [filtered, getStatus],
   );
 
-  const selectedAccount = accounts.find((a) => String(a.id) === String(accountId));
+  const selectedAccount = accounts.find(
+    (a) => String(a.id) === String(accountId),
+  );
   const exportMeta = {
     title: "Alert Dashboard Export",
     subtitle: `${selectedAccount?.label ?? ""} · ${fromDate ? fmtDate(fromDate.replace("T", " ") + ":00") : ""} → ${toDate ? fmtDate(toDate.replace("T", " ") + ":00") : ""}`,
   };
   const stamp = () => new Date().toISOString().slice(0, 10);
-  const handleExportCSV = () => exportCSV(exportRows, `alerts_${stamp()}.csv`, ALERT_EXPORT_COLS);
-  const handleExportExcel = () => exportExcel(exportRows, `alerts_${stamp()}.xlsx`, ALERT_EXPORT_COLS, "Alerts");
-  const handleExportPDF = () => exportPDF(exportRows, `alerts_${stamp()}`, ALERT_EXPORT_COLS, exportMeta);
+  const handleExportCSV = () =>
+    exportCSV(exportRows, `alerts_${stamp()}.csv`, ALERT_EXPORT_COLS);
+  const handleExportExcel = () =>
+    exportExcel(
+      exportRows,
+      `alerts_${stamp()}.xlsx`,
+      ALERT_EXPORT_COLS,
+      "Alerts",
+    );
+  const handleExportPDF = () =>
+    exportPDF(exportRows, `alerts_${stamp()}`, ALERT_EXPORT_COLS, exportMeta);
 
   const trackVehicle = (a) =>
     navigate(PATHS.TRACKING, {
@@ -573,20 +706,29 @@ export default function AlertsPage() {
     });
 
   const scrollToTable = () =>
-    document.getElementById("alerts-table-section")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    document
+      .getElementById("alerts-table-section")
+      ?.scrollIntoView({ behavior: "smooth", block: "start" });
 
   const scrollToFilter = () =>
-    filterCardRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    filterCardRef.current?.scrollIntoView({
+      behavior: "smooth",
+      block: "start",
+    });
 
   return (
     <div className="pb-10">
       <PageHeader
         crumbs={["Monitoring", "Alerts"]}
-        // title="Alert Dashboard"
-        // description="Monitor, prioritize, and review fleet alerts in real time."
+        title="Alert Dashboard"
+        description="Monitor, prioritize, and review fleet alerts in real time."
         actions={
           <div className="flex items-center gap-2">
-            <Button variant="secondary" icon={SlidersHorizontal} onClick={scrollToFilter}>
+            <Button
+              variant="secondary"
+              icon={SlidersHorizontal}
+              onClick={scrollToFilter}
+            >
               Filters
             </Button>
             <ExportMenu
@@ -624,19 +766,25 @@ export default function AlertsPage() {
           <form onSubmit={handleSubmit}>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
               <div>
-                <label className="block text-xs font-semibold text-slate-500 mb-1.5">Account</label>
+                <label className="block text-xs font-semibold text-slate-500 mb-1.5">
+                  Account
+                </label>
                 <select
                   value={accountId}
-                  onChange={(e) => setAccountId(e.target.value)}
+                  onChange={(e) => handleAccountChange(e.target.value)}
                   className="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 bg-white outline-none focus:border-primary"
                 >
                   {accounts.map((a) => (
-                    <option key={a.id} value={a.id}>{a.label}</option>
+                    <option key={a.id} value={a.id}>
+                      {a.label}
+                    </option>
                   ))}
                 </select>
               </div>
               <div>
-                <label className="block text-xs font-semibold text-slate-500 mb-1.5">From Date</label>
+                <label className="block text-xs font-semibold text-slate-500 mb-1.5">
+                  From Date
+                </label>
                 <input
                   type="datetime-local"
                   value={fromDate}
@@ -645,7 +793,9 @@ export default function AlertsPage() {
                 />
               </div>
               <div>
-                <label className="block text-xs font-semibold text-slate-500 mb-1.5">To Date</label>
+                <label className="block text-xs font-semibold text-slate-500 mb-1.5">
+                  To Date
+                </label>
                 <input
                   type="datetime-local"
                   value={toDate}
@@ -658,7 +808,10 @@ export default function AlertsPage() {
                   Filter by IMEI / Vehicle No
                 </label>
                 <div className="relative">
-                  <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <Search
+                    size={13}
+                    className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+                  />
                   <input
                     value={imeiFilter}
                     onChange={(e) => setImeiFilter(e.target.value)}
@@ -699,7 +852,9 @@ export default function AlertsPage() {
                 disabled={loading}
                 className={cn(
                   "px-8 py-2.5 rounded-xl text-sm font-bold text-white transition",
-                  loading ? "bg-primary/50 cursor-not-allowed" : "bg-primary hover:bg-primary-hover",
+                  loading
+                    ? "bg-primary/50 cursor-not-allowed"
+                    : "bg-primary hover:bg-primary-hover",
                 )}
               >
                 {loading ? "Searching…" : "Search Logs"}
@@ -713,7 +868,9 @@ export default function AlertsPage() {
         <Card>
           <div className="flex flex-col items-center justify-center py-16 text-slate-400">
             <Bell size={28} className="mb-2 text-slate-300" />
-            <p className="text-sm">Choose an account and date range, then search.</p>
+            <p className="text-sm">
+              Choose an account and date range, then search.
+            </p>
           </div>
         </Card>
       ) : (
@@ -836,14 +993,26 @@ export default function AlertsPage() {
                   tabs={[
                     { value: "all", label: `All (${tabCounts.all})` },
                     { value: "open", label: `Open (${tabCounts.open})` },
-                    { value: "acknowledged", label: `Ack (${tabCounts.acknowledged})` },
-                    { value: "resolved", label: `Resolved (${tabCounts.resolved})` },
-                    { value: "escalated", label: `Escalated (${tabCounts.escalated})` },
+                    {
+                      value: "acknowledged",
+                      label: `Ack (${tabCounts.acknowledged})`,
+                    },
+                    {
+                      value: "resolved",
+                      label: `Resolved (${tabCounts.resolved})`,
+                    },
+                    {
+                      value: "escalated",
+                      label: `Escalated (${tabCounts.escalated})`,
+                    },
                   ]}
                 />
               </div>
               <div className="relative">
-                <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                <Search
+                  size={13}
+                  className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400"
+                />
                 <input
                   value={imeiFilter}
                   onChange={(e) => setImeiFilter(e.target.value)}
@@ -874,8 +1043,8 @@ export default function AlertsPage() {
                           "Location",
                           "Triggered At",
                           "Status",
-                          // "Assigned To",
-                          // "ETA",
+                          "Assigned To",
+                          "ETA",
                           "",
                         ].map((h) => (
                           <th
@@ -895,14 +1064,19 @@ export default function AlertsPage() {
                         const status = getStatus(a.id);
                         const statusMeta = STATUS_META[status];
                         const enrichment = getMockEnrichment(a);
-                        const assignedTo = assignmentOverrides[a.id] ?? enrichment.assignedTo;
-                        const etaText = status === "resolved"
-                          ? "Resolved"
-                          : status === "open"
-                            ? `${enrichment.etaMinutes}m`
-                            : "—";
+                        const assignedTo =
+                          assignmentOverrides[a.id] ?? enrichment.assignedTo;
+                        const etaText =
+                          status === "resolved"
+                            ? "Resolved"
+                            : status === "open"
+                              ? `${enrichment.etaMinutes}m`
+                              : "—";
                         return (
-                          <tr key={a.id ?? i} className="hover:bg-slate-50 transition align-top">
+                          <tr
+                            key={a.id ?? i}
+                            className="hover:bg-slate-50 transition align-top"
+                          >
                             {/* Alert: type + severity in one cell */}
                             <td className="px-4 py-3 whitespace-nowrap">
                               <div className="flex items-center gap-2.5">
@@ -910,10 +1084,15 @@ export default function AlertsPage() {
                                   className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
                                   style={{ background: `${sevMeta.color}1a` }}
                                 >
-                                  <AlertOctagon size={13} style={{ color: sevMeta.color }} />
+                                  <AlertOctagon
+                                    size={13}
+                                    style={{ color: sevMeta.color }}
+                                  />
                                 </span>
                                 <div>
-                                  <div className="font-bold text-slate-700">{alertLabel}</div>
+                                  <div className="font-bold text-slate-700">
+                                    {alertLabel}
+                                  </div>
                                   <div
                                     className="text-[10px] font-bold"
                                     style={{ color: sevMeta.color }}
@@ -938,7 +1117,10 @@ export default function AlertsPage() {
                             {/* Location + message */}
                             <td className="px-4 py-3 text-slate-600 max-w-[260px]">
                               <div className="flex items-start gap-1">
-                                <MapPin size={11} className="text-slate-400 shrink-0 mt-0.5" />
+                                <MapPin
+                                  size={11}
+                                  className="text-slate-400 shrink-0 mt-0.5"
+                                />
                                 <span
                                   className="line-clamp-1"
                                   title={a.address || undefined}
@@ -975,25 +1157,26 @@ export default function AlertsPage() {
                               </span>
                             </td>
                             {/* Assigned To */}
-                            {/* <td className="px-4 py-3 whitespace-nowrap text-slate-600">
+                            <td className="px-4 py-3 whitespace-nowrap text-slate-600">
                               {assignedTo}
-                            </td> */}
+                            </td>
                             {/* ETA */}
-                            {/* <td className="px-4 py-3 whitespace-nowrap font-semibold text-slate-600">
+                            <td className="px-4 py-3 whitespace-nowrap font-semibold text-slate-600">
                               {etaText}
-                            </td> */}
+                            </td>
                             {/* Actions: track (standalone) + kebab (triage/reassign) */}
                             <td className="px-4 py-3 whitespace-nowrap">
                               <div className="flex items-center gap-1">
-                                {a.latitude && a.longitude && (
-                                  <button
-                                    onClick={() => trackVehicle(a)}
-                                    title="Track vehicle"
-                                    className="p-1.5 rounded-lg text-slate-400 hover:text-primary hover:bg-primary/10 transition"
-                                  >
-                                    <Eye size={13} />
-                                  </button>
-                                )}
+                                {(a.lat ?? a.latitude) &&
+                                  (a.lng ?? a.longitude) && (
+                                    <button
+                                      onClick={() => trackVehicle(a)}
+                                      title="Track vehicle"
+                                      className="p-1.5 rounded-lg text-slate-400 hover:text-primary hover:bg-primary/10 transition"
+                                    >
+                                      <Eye size={13} />
+                                    </button>
+                                  )}
                                 <RowActionsMenu
                                   status={status}
                                   onAcknowledge={() => acknowledge(a.id)}
@@ -1028,7 +1211,9 @@ export default function AlertsPage() {
                       className="ml-2 px-2 py-1 text-xs rounded-lg border border-slate-200 bg-white outline-none focus:border-primary"
                     >
                       {PAGE_SIZES.map((n) => (
-                        <option key={n} value={n}>{n} / page</option>
+                        <option key={n} value={n}>
+                          {n} / page
+                        </option>
                       ))}
                     </select>
                   </div>
@@ -1043,7 +1228,10 @@ export default function AlertsPage() {
                     {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
                       let p = i + 1;
                       if (totalPages > 5) {
-                        const start = Math.max(1, Math.min(page - 2, totalPages - 4));
+                        const start = Math.max(
+                          1,
+                          Math.min(page - 2, totalPages - 4),
+                        );
                         p = start + i;
                       }
                       return (
@@ -1062,7 +1250,9 @@ export default function AlertsPage() {
                       );
                     })}
                     <button
-                      onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                      onClick={() =>
+                        setPage((p) => Math.min(totalPages, p + 1))
+                      }
                       disabled={page === totalPages}
                       className="p-1.5 rounded-lg border border-slate-200 text-slate-500 disabled:opacity-30 hover:bg-slate-50 transition"
                     >

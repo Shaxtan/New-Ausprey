@@ -2,13 +2,14 @@
  * TopDistanceCard.jsx — Dashboard
  *
  * Shows the top N vehicles ranked by distance today, as a horizontal bar
- * chart with a ranked list below. Sourced from the dedicated
+ * chart only (no ranked list below it). Sourced from the dedicated
  * /reports/top-distance-devices endpoint (per-vehicle, server-ranked).
  *
- * Clicking a row opens the Distance Report (inside the Reports hub) with
+ * Clicking a bar opens the Distance Report (inside the Reports hub) with
  * that vehicle's IMEI pre-filled and the report auto-fetched — the same
  * `activeReport` navigation pattern the Fleet Chat Assistant's OPEN_REPORT
- * action already uses to reach DistanceReportPage.
+ * action already uses to reach DistanceReportPage, and the same behaviour
+ * the old ranked-list rows used to trigger.
  */
 
 import { Route } from "lucide-react";
@@ -28,15 +29,7 @@ function shadeForRank(i, total) {
   const r = Math.round(SHADE_START.r + (SHADE_END.r - SHADE_START.r) * t);
   const g = Math.round(SHADE_START.g + (SHADE_END.g - SHADE_START.g) * t);
   const b = Math.round(SHADE_START.b + (SHADE_END.b - SHADE_START.b) * t);
-  return { r, g, b, css: `rgb(${r}, ${g}, ${b})` };
-}
-
-// White text reads fine on the darker end of the gradient but disappears
-// against the pale tint near the last rank — switch to dark text once the
-// background gets light enough (perceptual luminance threshold).
-function textColorFor({ r, g, b }) {
-  const luminance = 0.299 * r + 0.587 * g + 0.114 * b;
-  return luminance > 170 ? "#1e3a8a" : "#ffffff";
+  return `rgb(${r}, ${g}, ${b})`;
 }
 
 export function TopDistanceCard({ data = [], loading }) {
@@ -44,11 +37,11 @@ export function TopDistanceCard({ data = [], loading }) {
 
   const chartData = data.map((d, i) => ({
     ...d,
-    color: shadeForRank(i, data.length).css,
+    color: shadeForRank(i, data.length),
   }));
 
   const openDistanceReport = (d) => {
-    if (!d.imei) return;
+    if (!d?.imei) return;
     navigate(PATHS.REPORTS, {
       state: {
         activeReport: "distance",
@@ -60,7 +53,7 @@ export function TopDistanceCard({ data = [], loading }) {
   };
 
   return (
-    <Card hover className="h-[390px] flex flex-col">
+    <Card hover className="min-h-[280px] flex flex-col">
       <CardHeader
         title="Top by Distance"
         subtitle="Today — by vehicle"
@@ -74,7 +67,7 @@ export function TopDistanceCard({ data = [], loading }) {
         }
       />
 
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 flex flex-col justify-center">
         {loading ? (
           <div className="space-y-2 mt-2">
             {Array.from({ length: 5 }).map((_, i) => (
@@ -89,61 +82,15 @@ export function TopDistanceCard({ data = [], loading }) {
             </p>
           </div>
         ) : (
-          <>
-            {/* Horizontal Bar Chart */}
-            <BarChart
-              data={chartData}
-              dataKey="value"
-              layout="vertical"
-              height={Math.max(120, chartData.length * 32)}
-              showValueLabels
-              valueFormatter={(v) => `${formatNumber(v)} km`}
-            />
-
-            {/* Ranked List */}
-            <div className="mt-2 space-y-0.5">
-              {data.map((d, i) => {
-                const shade = shadeForRank(i, data.length);
-                return (
-                  <button
-                    key={d.imei ?? i}
-                    onClick={() => openDistanceReport(d)}
-                    disabled={!d.imei}
-                    className="w-full flex items-center justify-between py-1 px-2 rounded-lg hover:bg-slate-50 transition-colors text-left disabled:cursor-default disabled:hover:bg-transparent"
-                  >
-                    <span className="flex items-center gap-2 min-w-0">
-                      <span
-                        className="w-6 h-6 rounded-full text-[11px] font-bold flex items-center justify-center shrink-0 shadow-sm"
-                        style={{
-                          background: shade.css,
-                          color: textColorFor(shade),
-                        }}
-                      >
-                        {i + 1}
-                      </span>
-
-                      <div className="min-w-0">
-                        <div className="text-xs font-semibold text-slate-700 truncate">
-                          {d.name}
-                        </div>
-
-                        <div className="text-[10px] text-slate-400 truncate">
-                          {d.accountName ?? "—"}
-                        </div>
-                      </div>
-                    </span>
-
-                    <span className="text-xs font-bold text-slate-800 shrink-0 ml-2">
-                      {formatNumber(d.value)}
-                      <span className="ml-1 text-[10px] font-normal text-slate-400">
-                        km
-                      </span>
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-          </>
+          <BarChart
+            data={chartData}
+            dataKey="value"
+            layout="vertical"
+            height={Math.max(180, chartData.length * 34)}
+            showValueLabels
+            valueFormatter={(v) => `${formatNumber(v)} km`}
+            onBarClick={openDistanceReport}
+          />
         )}
       </div>
     </Card>

@@ -206,9 +206,9 @@ export default function FleetIntelligencePage() {
   return (
     <div className="pb-10">
       <PageHeader
-        crumbs={["Home", "Fleet Intelligence"]}
-        // title="Fleet Intelligence"
-        // description="AI agents continuously scan your fleet data for quality, health, and priority issues."
+        crumbs={["Insights", "Fleet Intelligence"]}
+        title="Fleet Intelligence"
+        description="AI agents continuously scan your fleet data for quality, health, and priority issues."
         actions={
           <button
             onClick={() => refetch()}
@@ -312,12 +312,23 @@ export default function FleetIntelligencePage() {
           onAgentClick={() => focusFindings({ agent: "device-health" })}
           stats={
             scan && [
-              ["Healthy", scan.health.stats.healthy],
-              ["Degraded", scan.health.stats.degraded],
-              ["Critical", scan.health.stats.critical],
+              // "Healthy" devices never generate a finding at all (a device
+              // only produces findings for its problems), so there's no
+              // findings-table subset this row could filter to — it's
+              // shown for context only, not as a button.
+              ["Healthy", scan.health.stats.healthy, null, false],
+              // Degraded/Critical are per-device score buckets; the closest
+              // real correspondence in the findings table is severity
+              // (warning ≈ degraded-contributing issues, critical ≈
+              // severe issues) — an approximation, but a genuine,
+              // consistently-applied one instead of a no-op.
+              ["Degraded", scan.health.stats.degraded, "warning", true],
+              ["Critical", scan.health.stats.critical, "critical", true],
             ]
           }
-          onStatClick={() => focusFindings({ agent: "device-health" })}
+          onStatClick={(severity) =>
+            focusFindings({ agent: "device-health", severity })
+          }
         />
         <AgentCard
           agentKey="alert-priority"
@@ -325,16 +336,31 @@ export default function FleetIntelligencePage() {
           onAgentClick={() => focusFindings({ agent: "alert-priority" })}
           stats={
             scan && [
-              ["Raw alerts", scan.priority.stats.rawAlerts],
-              ["Bursts", scan.priority.stats.bursts],
-              ["Noise removed", scan.priority.stats.collapsed],
+              // Raw alerts / Noise removed are counts over the WHOLE alert
+              // stream (including low-score bursts that never became a
+              // finding), so neither corresponds to a subset of the
+              // findings table — display-only, and clicking them does
+              // nothing rather than falling back to "show everything"
+              // (which would make them look like an equally-valid filter).
+              ["Raw alerts", scan.priority.stats.rawAlerts, null, false],
+              ["Noise removed", scan.priority.stats.collapsed, null, false],
+              // Every alert-priority finding scores ≥ 60 by construction —
+              // "high urgency" as a single bucket would be identical to
+              // the whole agent's findings (same as clicking the card
+              // header), so it's split into its two real severity tiers
+              // instead, each mapping to a genuinely different subset.
               [
-                "High urgency",
-                scan.priority.stats.high + scan.priority.stats.critical,
+                "Critical priority",
+                scan.priority.stats.critical,
+                "critical",
+                true,
               ],
+              ["High priority", scan.priority.stats.high, "warning", true],
             ]
           }
-          onStatClick={() => focusFindings({ agent: "alert-priority" })}
+          onStatClick={(severity) =>
+            focusFindings({ agent: "alert-priority", severity })
+          }
         />
       </div>
 
@@ -351,6 +377,17 @@ export default function FleetIntelligencePage() {
             {agentFilter !== "all" && (
               <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full bg-primary/10 text-primary">
                 {AGENT_META[agentFilter]?.label ?? agentFilter}
+              </span>
+            )}
+            {sevFilter !== "all" && (
+              <span
+                className={cn(
+                  "inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full capitalize",
+                  SEV_META[sevFilter]?.bg,
+                  SEV_META[sevFilter]?.color,
+                )}
+              >
+                {SEV_META[sevFilter]?.label ?? sevFilter}
               </span>
             )}
             {codeFilter !== "all" && (
@@ -543,6 +580,13 @@ export default function FleetIntelligencePage() {
 }
 
 // ─── Per-agent summary card ───────────────────────────────────────────────────
+// Each stats row is [label, value, filterArg, clickable?]. clickable defaults
+// to true when omitted (Data Quality's tuples rely on this). Some rows have
+// NO real corresponding subset in the findings table — e.g. "Healthy"
+// devices never produce a finding at all — so those are passed with
+// clickable=false and render as plain rows instead of buttons, rather than
+// offering a filter that silently does nothing or (as before this fix)
+// falls back to the same fixed filter regardless of which row was clicked.
 function AgentCard({ agentKey, stats, loading, onAgentClick, onStatClick }) {
   const meta = AGENT_META[agentKey];
   const Icon = meta.icon;
@@ -562,22 +606,34 @@ function AgentCard({ agentKey, stats, loading, onAgentClick, onStatClick }) {
         <Skeleton className="h-20 w-full" />
       ) : (
         <div className="space-y-1">
-          {stats.map(([label, value, code]) => (
-            <button
-              key={label}
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                (onStatClick ?? onAgentClick)?.(code);
-              }}
-              className="w-full flex items-center justify-between text-xs px-2 py-1 -mx-2 rounded-lg hover:bg-slate-50 transition group"
-            >
-              <span className="text-slate-500 group-hover:text-primary transition">
-                {label}
-              </span>
-              <span className="font-bold text-slate-800">{value}</span>
-            </button>
-          ))}
+          {stats.map(([label, value, filterArg, clickable = true]) =>
+            clickable ? (
+              <button
+                key={label}
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onStatClick?.(filterArg);
+                }}
+                className="w-full flex items-center justify-between text-xs px-2 py-1 -mx-2 rounded-lg hover:bg-slate-50 transition group"
+              >
+                <span className="text-slate-500 group-hover:text-primary transition">
+                  {label}
+                </span>
+                <span className="font-bold text-slate-800">{value}</span>
+              </button>
+            ) : (
+              <div
+                key={label}
+                onClick={(e) => e.stopPropagation()}
+                className="w-full flex items-center justify-between text-xs px-2 py-1 -mx-2 rounded-lg"
+                title="Not individually filterable"
+              >
+                <span className="text-slate-400">{label}</span>
+                <span className="font-bold text-slate-500">{value}</span>
+              </div>
+            ),
+          )}
         </div>
       )}
     </Card>

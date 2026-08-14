@@ -42,6 +42,7 @@ export function BarChart({
   layout = "horizontal",
   showValueLabels = false,
   valueFormatter,
+  onBarClick,
 }) {
   if (layout === "vertical") {
     return (
@@ -68,7 +69,12 @@ export function BarChart({
             {...chartTooltipProps}
             cursor={{ fill: "rgba(37,99,235,.05)" }}
           />
-          <Bar dataKey={dataKey} radius={[0, 6, 6, 0]}>
+          <Bar
+            dataKey={dataKey}
+            radius={[0, 6, 6, 0]}
+            onClick={onBarClick}
+            style={onBarClick ? { cursor: "pointer" } : undefined}
+          >
             {data.map((d, i) => (
               <Cell key={i} fill={d.color || color} />
             ))}
