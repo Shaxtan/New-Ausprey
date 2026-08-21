@@ -400,6 +400,8 @@ function LiveInfoOverlay({ vehicle, liveData }) {
   const distance = Number(d.distance ?? 0).toFixed(1);
   const status = vehicle.status ?? "—";
   const ignition = d.ign === "Y" ? "ON" : "OFF";
+  const lat = d.lat ?? "_";
+  const lng = d.lng ?? "_";
   const battery = d.misc?.batteryPercentage
     ? `${d.misc.batteryPercentage} V`
     : "—";
@@ -483,6 +485,18 @@ function LiveInfoOverlay({ vehicle, liveData }) {
           icon={Navigation}
           label="Bearing"
           value={d.disha != null ? `${d.disha}°` : "—"}
+          iconColor="text-slate-400"
+        />
+        <StatCell
+          icon={Navigation}
+          label="Latitude"
+          value={lat}
+          iconColor="text-slate-400"
+        />
+        <StatCell
+          icon={Navigation}
+          label="Longitude"
+          value={lng}
           iconColor="text-slate-400"
         />
       </div>
